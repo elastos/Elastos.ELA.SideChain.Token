@@ -20,7 +20,7 @@ func InitTransactionValidtor() {
 	blockchain.TransactionValidator.CheckTransactionContext = CheckTransactionContextImpl
 	blockchain.TransactionValidator.CheckAssetPrecision = CheckAssetPrecisionImpl
 	blockchain.TransactionValidator.CheckTransactionPayload = CheckTransactionPayloadImpl
-	blockchain.TransactionValidator.CheckTransactionBalance = CheckTransactionBalanceImpl
+	blockchain.TransactionValidator.CheckTransactionBalance = CheckTransactionFee
 	blockchain.TransactionValidator.CheckReferencedOutput = CheckReferencedOutputImpl
 }
 
@@ -45,16 +45,26 @@ func CheckTransactionOutputImpl(txn *ucore.Transaction) error {
 		return nil
 	}
 
-	if txn.IsRechargeToSideChainTx() {
-		return nil
-	}
-
 	if len(txn.Outputs) < 1 {
 		return errors.New("transaction has no outputs")
 	}
 
 	// check if output address is valid
 	for _, output := range txn.Outputs {
+		if output.AssetID == EmptyHash {
+			return errors.New("asset id is nil")
+		} else if output.AssetID == blockchain.DefaultLedger.Blockchain.AssetID {
+			if output.Value < 0 || output.TokenValue.Sign() != 0 {
+				return errors.New("invalid transaction output with ela asset id")
+			}
+		} else {
+			if txn.IsRechargeToSideChainTx() || txn.IsTransferCrossChainAssetTx() {
+				return errors.New("cross chain asset tx asset id should only be ela asset id")
+			}
+			if output.TokenValue.Sign() < 0 || output.Value != 0 {
+				return errors.New("invalid transaction output with token asset id")
+			}
+		}
 		if !blockchain.TransactionValidator.CheckOutputProgramHash(output.ProgramHash) {
 			return errors.New("output address is invalid")
 		}
@@ -235,33 +245,47 @@ func CheckTransactionPayloadImpl(txn *ucore.Transaction) error {
 	return nil
 }
 
-func CheckTransactionBalanceImpl(txn *ucore.Transaction) error {
-	for _, v := range txn.Outputs {
-		if v.AssetID.IsEqual(blockchain.DefaultLedger.Blockchain.AssetID) {
-			if v.Value < Fixed64(0) {
-				return errors.New("Invalide transaction UTXO output Value.")
-			}
-		} else {
-			if v.TokenValue.Sign() < 0 {
-				return errors.New("Invalide transaction UTXO output TokenValue.")
-			}
-		}
+func CheckTransactionFee(txn *ucore.Transaction) error {
+	var elaInputAmount = Fixed64(0)
+	var tokenInputAmount = new(big.Int).SetInt64(0)
+	var elaOutputAmount = Fixed64(0)
+	var tokenOutputAmount = new(big.Int).SetInt64(0)
 
-	}
-	results, err := TxFeeHelper.GetTxFeeMap(txn)
+	references, err := blockchain.DefaultLedger.Store.GetTxReference(txn)
 	if err != nil {
 		return err
 	}
-	for assetID, totalFeeOfAsset := range results {
-		if assetID.IsEqual(blockchain.DefaultLedger.Blockchain.AssetID) {
-			if totalFeeOfAsset.Cmp(big.NewInt(int64(config.Parameters.PowConfiguration.MinTxFee))) < 0 {
-				return fmt.Errorf("Transaction fee not enough")
-			}
-		} else if txn.TxType != ucore.RegisterAsset && totalFeeOfAsset.Sign() != 0 {
-			return fmt.Errorf("Transaction token asset fee should be 0")
+
+	for _, output := range references {
+		if output.AssetID.IsEqual(blockchain.DefaultLedger.Blockchain.AssetID) {
+			elaInputAmount += output.Value
+		} else {
+			tokenInputAmount.Add(tokenInputAmount, &(output.TokenValue))
+		}
+	}
+	for _, output := range txn.Outputs {
+		if output.AssetID.IsEqual(blockchain.DefaultLedger.Blockchain.AssetID) {
+			elaOutputAmount += output.Value
+		} else {
+			tokenOutputAmount.Add(tokenOutputAmount, &(output.TokenValue))
 		}
 	}
 
+	elaBalance := elaInputAmount - elaOutputAmount
+	if txn.IsTransferCrossChainAssetTx() || txn.IsRechargeToSideChainTx() {
+		if int(elaBalance) < config.Parameters.MinCrossChainTxFee {
+			return errors.New("crosschain transaction fee is not enough")
+		}
+	} else {
+		if int(elaBalance) < config.Parameters.PowConfiguration.MinTxFee {
+			return errors.New("transaction fee is not enough")
+		}
+	}
+
+	tokenBalance := tokenInputAmount.Sub(tokenInputAmount, tokenOutputAmount)
+	if tokenBalance.Sign() != 0 {
+		return errors.New("token amount is not balanced")
+	}
 	return nil
 }
 

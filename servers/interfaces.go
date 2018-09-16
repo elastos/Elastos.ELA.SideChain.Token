@@ -2,8 +2,10 @@ package servers
 
 import (
 	"math/big"
+	"bytes"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain/errors"
 	ucore "github.com/elastos/Elastos.ELA.SideChain/core"
 	"github.com/elastos/Elastos.ELA.SideChain/servers"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
@@ -14,6 +16,7 @@ func InitHttpServers() {
 	servers.HttpServers.Init()
 	servers.HttpServers.GetPayloadInfo = GetPayloadInfo
 	servers.HttpServers.GetTransactionInfo = GetTransactionInfo
+	servers.HttpServers.SendRawTransaction = SendRawTransaction
 }
 
 func GetPayloadInfo(p ucore.Payload) servers.PayloadInfo {
@@ -116,4 +119,26 @@ func GetTransactionInfo(header *ucore.Header, tx *ucore.Transaction) *servers.Tr
 		Attributes:     attributes,
 		Programs:       programs,
 	}
+}
+
+func SendRawTransaction(param servers.Params) map[string]interface{} {
+	str, ok := param.String("data")
+	if !ok {
+		return servers.ResponsePack(errors.InvalidParams, "need a string parameter named data")
+	}
+
+	bys, err := HexStringToBytes(str)
+	if err != nil {
+		return servers.ResponsePack(errors.InvalidParams, "hex string to bytes error")
+	}
+	var txn ucore.Transaction
+	if err := txn.Deserialize(bytes.NewReader(bys)); err != nil {
+		return servers.ResponsePack(errors.InvalidTransaction, "transaction deserialize error")
+	}
+
+	if errCode := servers.HttpServers.VerifyAndSendTx(&txn); errCode != errors.Success {
+		return servers.ResponsePack(errCode, errCode.Message())
+	}
+
+	return servers.ResponsePack(errors.Success, servers.ToReversedString(txn.Hash()))
 }
