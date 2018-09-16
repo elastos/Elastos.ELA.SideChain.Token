@@ -93,7 +93,7 @@ func(t *TxFeeHelperBase) GetTxFeeMapImpl(tx *core.Transaction) (map[Uint256]*big
 
 		amount, ok := inputs[v.AssetID]
 		if ok {
-			inputs[v.AssetID] = *amount.Add(&amount, &value)
+			inputs[v.AssetID] = *new(big.Int).Add(&amount, &value)
 		} else {
 			inputs[v.AssetID] = value
 		}
@@ -109,7 +109,7 @@ func(t *TxFeeHelperBase) GetTxFeeMapImpl(tx *core.Transaction) (map[Uint256]*big
 
 		amount, ok := outputs[v.AssetID]
 		if ok {
-			outputs[v.AssetID] = *amount.Add(&amount, &value)
+			outputs[v.AssetID] = *new(big.Int).Add(&amount, &value)
 		} else {
 			outputs[v.AssetID] = value
 		}
@@ -133,10 +133,9 @@ func(t *TxFeeHelperBase) GetTxFeeMapImpl(tx *core.Transaction) (map[Uint256]*big
 		if _, exist := feeMap[inputAssetid]; !exist {
 			value, ok := feeMap[inputAssetid]
 			if ok {
-				feeMap[inputAssetid] = value.Add(value, &inputValue)
+				feeMap[inputAssetid] = new(big.Int).Add(value, &inputValue)
 			} else {
-				val := big.NewInt(0)
-				feeMap[inputAssetid] = val.Add(value, &inputValue)
+				feeMap[inputAssetid] = new(big.Int).Add(value, &inputValue)
 			}
 		}
 	}
