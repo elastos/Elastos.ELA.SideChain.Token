@@ -53,7 +53,7 @@ func init() {
 }
 
 func startConsensus(noder protocol.Noder) {
-	servers.LocalPow = pow.NewTokenPowService(noder)
+	pow.InitTokenPowService(noder)
 	if config.Parameters.PowConfiguration.AutoMining {
 		log.Info("Start POW Services")
 		go servers.LocalPow.Start()

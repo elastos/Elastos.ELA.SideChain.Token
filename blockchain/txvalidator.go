@@ -1,16 +1,16 @@
 package blockchain
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
+	"math/big"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain/config"
 	ucore "github.com/elastos/Elastos.ELA.SideChain/core"
-	. "github.com/elastos/Elastos.ELA.Utility/common"
 	. "github.com/elastos/Elastos.ELA.SideChain/errors"
 	"github.com/elastos/Elastos.ELA.SideChain/log"
-	"github.com/elastos/Elastos.ELA.SideChain/config"
-	"math/big"
+	. "github.com/elastos/Elastos.ELA.Utility/common"
 )
 
 func InitTransactionValidtor() {
@@ -74,7 +74,7 @@ func CheckTransactionOutputImpl(txn *ucore.Transaction) error {
 }
 
 // CheckTransactionContext verifys a transaction with history transaction in ledger
-func CheckTransactionContextImpl(txn *ucore.Transaction) ErrCode{
+func CheckTransactionContextImpl(txn *ucore.Transaction) ErrCode {
 	if ok, errcode := blockchain.TransactionValidator.CheckTxHashDuplicate(txn); !ok {
 		return errcode
 	}
@@ -177,7 +177,7 @@ func CheckRegisterAssetTransaction(txn *ucore.Transaction) error {
 			totalToken.Add(totalToken, &output.TokenValue)
 		}
 	}
-	regAmount := big.NewInt(int64(payload.Amount))
+	regAmount := big.NewInt(payload.Amount.IntValue())
 	regAmount.Mul(regAmount, getPrecisionBigInt())
 
 	if totalToken.Cmp(regAmount) != 0 {
@@ -224,7 +224,7 @@ func CheckAssetPrecisionImpl(txn *ucore.Transaction) error {
 func CheckTransactionPayloadImpl(txn *ucore.Transaction) error {
 	switch pld := txn.Payload.(type) {
 	case *ucore.PayloadRegisterAsset:
-		if pld.Asset.Precision < ucore.MinPrecision || pld.Asset.Precision > ucore.MaxPrecision {
+		if pld.Asset.Precision < ucore.MinPrecision || pld.Asset.Precision > 18 {
 			return errors.New("Invalide asset Precision.")
 		}
 		hash := txn.Hash()
@@ -283,7 +283,7 @@ func CheckTransactionFee(txn *ucore.Transaction) error {
 	}
 
 	tokenBalance := tokenInputAmount.Sub(tokenInputAmount, tokenOutputAmount)
-	if tokenBalance.Sign() != 0 {
+	if txn.TxType != ucore.RegisterAsset && tokenBalance.Sign() != 0 {
 		return errors.New("token amount is not balanced")
 	}
 	return nil

@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"github.com/elastos/Elastos.ELA.SideChain/core"
-	"github.com/elastos/Elastos.ELA.SPV/spvwallet"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
 )
 
@@ -15,14 +14,13 @@ func InitOutputHelper() {
 	core.OutputHelper.Deserialize = DeserializeOutput
 }
 
-
 func SerializeOutput(output *core.Output, w io.Writer) error {
 	err := output.AssetID.Serialize(w)
 	if err != nil {
 		return err
 	}
 
-	if output.AssetID.IsEqual(spvwallet.SystemAssetId) {
+	if output.AssetID.IsEqual(core.GetSystemAssetId()) {
 		err = output.Value.Serialize(w)
 		if err != nil {
 			return err
@@ -50,7 +48,7 @@ func DeserializeOutput(output *core.Output, r io.Reader) error {
 		return err
 	}
 
-	if output.AssetID.IsEqual(spvwallet.SystemAssetId) {
+	if output.AssetID.IsEqual(core.GetSystemAssetId()) {
 		err = output.Value.Deserialize(r)
 		if err != nil {
 			return err
