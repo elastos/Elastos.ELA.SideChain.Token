@@ -1,12 +1,12 @@
 package servers
 
 import (
-	"math/big"
 	"bytes"
+	"math/big"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
-	"github.com/elastos/Elastos.ELA.SideChain/errors"
 	ucore "github.com/elastos/Elastos.ELA.SideChain/core"
+	"github.com/elastos/Elastos.ELA.SideChain/errors"
 	"github.com/elastos/Elastos.ELA.SideChain/servers"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
 )
@@ -59,8 +59,11 @@ func GetTransactionInfo(header *ucore.Header, tx *ucore.Transaction) *servers.Tr
 
 	outputs := make([]servers.OutputInfo, len(tx.Outputs))
 	for i, v := range tx.Outputs {
-		outputs[i].Value = v.Value.String()
-		outputs[i].TokenValue = v.TokenValue.String()
+		if v.AssetID.IsEqual(ucore.GetSystemAssetId()) {
+			outputs[i].Value = v.Value.String()
+		} else {
+			outputs[i].Value = v.TokenValue.String()
+		}
 		outputs[i].Index = uint32(i)
 		var address string
 		destroyHash := Uint168{}

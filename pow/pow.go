@@ -13,33 +13,24 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/protocol"
 	"github.com/elastos/Elastos.ELA.SideChain/log"
+	"github.com/elastos/Elastos.ELA.SideChain/servers"
+
 )
 
-type TokenPowService struct {
-	pow.PowService
-}
-
-func NewTokenPowService(localNode protocol.Noder) *TokenPowService {
-	tokenPowService := &TokenPowService{
-		PowService: *pow.NewPowService(localNode),
-	}
-	tokenPowService.Init()
-
+func InitTokenPowService(localNode protocol.Noder) {
+	servers.LocalPow = pow.NewPowService(localNode)
+	servers.LocalPow.Init()
+	servers.LocalPow.GenerateBlockTransactions = GenerateBlockTransactions
 	log.Trace("pow Service Init succeed")
-	return tokenPowService
 }
 
-func(p *TokenPowService) Init() {
-	p.Functions.GenerateBlockTransactions = p.GenerateBlockTransactionsImpl
-}
-
-func (p *TokenPowService) GenerateBlockTransactionsImpl(msgBlock *ucore.Block, coinBaseTx *ucore.Transaction) {
+func GenerateBlockTransactions(msgBlock *ucore.Block, coinBaseTx *ucore.Transaction) {
 	nextBlockHeight := blockchain.DefaultLedger.Blockchain.GetBestHeight() + 1
 	totalTxsSize := coinBaseTx.GetSize()
 	txCount := 1
 	totalFee := common.Fixed64(0)
 	var txsByFeeDesc pow.ByFeeDesc
-	txsInPool := p.LocalNode.GetTxsInPool()
+	txsInPool := servers.LocalPow.LocalNode.GetTxsInPool()
 	txsByFeeDesc = make([]*ucore.Transaction, 0, len(txsInPool))
 	for _, v := range txsInPool {
 		txsByFeeDesc = append(txsByFeeDesc, v)
