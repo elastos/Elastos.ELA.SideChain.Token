@@ -1,36 +1,32 @@
-package blockchain
+package mempool
 
 import (
 	"bytes"
 	"errors"
+	"math/big"
 
 	"github.com/elastos/Elastos.ELA.SideChain/config"
-	"github.com/elastos/Elastos.ELA.SideChain/core"
-
+	"github.com/elastos/Elastos.ELA.SideChain/types"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
-	"math/big"
-	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
+	"github.com/elastos/Elastos.ELA/core"
 )
 
-var TxFeeHelper *TxFeeHelperBase
+type FeeHelper struct {
+	exchangeRate float64
+	getReference GetReference
 
-type TxFeeHelperBase struct {
-	GetTxFee         func(tx *core.Transaction, assetId Uint256) *big.Int
-	GetTxFeeMap      func(tx *core.Transaction) (map[Uint256]*big.Int, error)
+	systemAssetId Uint256
 }
 
-func InitTxFeeHelper() {
-	TxFeeHelper = &TxFeeHelperBase{}
-	TxFeeHelper.Init()
+func NewTokenFeeHelper(cfg *Config) *FeeHelper {
+	return &FeeHelper{
+		getReference:  cfg.ChainStore.GetTxReference,
+		exchangeRate:  cfg.ExchangeRage,
+		systemAssetId: cfg.AssetId,
+	}
 }
 
-func (t *TxFeeHelperBase) Init() {
-	t.GetTxFee = t.GetTxFeeImpl
-	t.GetTxFeeMap = t.GetTxFeeMapImpl
-}
-
-
-func (t *TxFeeHelperBase)GetTxFeeImpl(tx *core.Transaction, assetId Uint256) *big.Int {
+func (t *FeeHelper) GetTxFee(tx *types.Transaction, assetId Uint256) *big.Int {
 	feeMap, err := t.GetTxFeeMap(tx)
 	if err != nil {
 		return big.NewInt(0)
@@ -39,18 +35,18 @@ func (t *TxFeeHelperBase)GetTxFeeImpl(tx *core.Transaction, assetId Uint256) *bi
 	return feeMap[assetId]
 }
 
-func(t *TxFeeHelperBase) GetTxFeeMapImpl(tx *core.Transaction) (map[Uint256]*big.Int, error) {
+func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, error) {
 	feeMap := make(map[Uint256]*big.Int)
 
 	if tx.IsRechargeToSideChainTx() {
-		depositPayload := tx.Payload.(*core.PayloadRechargeToSideChain)
+		depositPayload := tx.Payload.(*types.PayloadRechargeToSideChain)
 		mainChainTransaction := new(core.Transaction)
 		reader := bytes.NewReader(depositPayload.MainChainTransaction)
 		if err := mainChainTransaction.Deserialize(reader); err != nil {
 			return nil, errors.New("GetTxFeeMap mainChainTransaction deserialize failed")
 		}
 
-		crossChainPayload := mainChainTransaction.Payload.(*core.PayloadTransferCrossChainAsset)
+		crossChainPayload := mainChainTransaction.Payload.(*types.PayloadTransferCrossChainAsset)
 
 		for _, v := range tx.Outputs {
 			for i := 0; i < len(crossChainPayload.CrossChainAddresses); i++ {
@@ -76,7 +72,7 @@ func(t *TxFeeHelperBase) GetTxFeeMapImpl(tx *core.Transaction) (map[Uint256]*big
 		return feeMap, nil
 	}
 
-	reference, err := blockchain.DefaultLedger.Store.GetTxReference(tx)
+	reference, err := t.getReference(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +81,7 @@ func(t *TxFeeHelperBase) GetTxFeeMapImpl(tx *core.Transaction) (map[Uint256]*big
 	var outputs = make(map[Uint256]big.Int)
 	for _, v := range reference {
 		value := big.Int{}
-		if v.AssetID.IsEqual(blockchain.DefaultLedger.Blockchain.AssetID) {
+		if v.AssetID.IsEqual(t.systemAssetId) {
 			value = *big.NewInt(int64(v.Value))
 		} else {
 			value = v.TokenValue
@@ -101,7 +97,7 @@ func(t *TxFeeHelperBase) GetTxFeeMapImpl(tx *core.Transaction) (map[Uint256]*big
 
 	for _, v := range tx.Outputs {
 		value := big.Int{}
-		if v.AssetID.IsEqual(blockchain.DefaultLedger.Blockchain.AssetID) {
+		if v.AssetID.IsEqual(t.systemAssetId) {
 			value = *big.NewInt(int64(v.Value))
 		} else {
 			value = v.TokenValue

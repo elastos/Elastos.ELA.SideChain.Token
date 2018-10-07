@@ -1,39 +1,44 @@
 package blockchain
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
-
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
-	ucore "github.com/elastos/Elastos.ELA.SideChain/core"
+	"github.com/elastos/Elastos.ELA.SideChain/database"
+	"github.com/elastos/Elastos.ELA.SideChain/types"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
-	"bytes"
 )
 
 type TokenChainStore struct {
-	blockchain.ChainStore
+	*blockchain.ChainStore
+	systemAssetID Uint256
 }
 
-func NewChainStore() (blockchain.IChainStore, error) {
-	chainStore, err := blockchain.NewChainStore()
+func NewChainStore(genesisBlock *types.Block, assetID Uint256) (*blockchain.ChainStore, error) {
+	chainStore, err := blockchain.NewChainStore(genesisBlock)
 	if err != nil {
 		return nil, err
 	}
 
 	store := &TokenChainStore{
-		ChainStore: *chainStore,
+		ChainStore:    chainStore,
+		systemAssetID: assetID,
 	}
-	store.Init()
+	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistUnspendUTXOs, store.persistUnspendUTXOs)
+	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
+	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistUnspend, store.persistUnspend)
 
-	go store.Loop()
+	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspendUTXOs, store.rollbackUnspendUTXOs)
+	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspend, store.rollbackUnspend)
 
-	return store, nil
+	return store.ChainStore, nil
 }
 
-func (c *TokenChainStore) GetTxReference(tx *ucore.Transaction) (map[*ucore.Input]*ucore.Output, error) {
+func (c *TokenChainStore) GetTxReference(tx *types.Transaction) (map[*types.Input]*types.Output, error) {
 	//UTXO input /  Outputs
-	reference := make(map[*ucore.Input]*ucore.Output)
+	reference := make(map[*types.Input]*types.Output)
 	// Key index，v UTXOInput
 	for _, utxo := range tx.Inputs {
 		transaction, _, err := c.GetTransaction(utxo.Previous.TxID)
@@ -49,16 +54,8 @@ func (c *TokenChainStore) GetTxReference(tx *ucore.Transaction) (map[*ucore.Inpu
 	return reference, nil
 }
 
-func (c *TokenChainStore) Init() {
-	c.PersistUnspendUTXOs = c.PersistUnspendUTXOsImpl
-	c.RollbackUnspendUTXOs = c.RollbackUnspendUTXOsImpl
-	c.PersistTransactions = c.PersistTransactionsImpl
-	c.PersistUnspend = c.PersistUnspendImpl
-	c.RollbackUnspend = c.RollbackUnspendImpl
-}
-
-func (c *TokenChainStore) PersistUnspendUTXOsImpl(b *ucore.Block) error {
-	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*blockchain.UTXO)
+func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Block) error {
+	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*types.UTXO)
 	curHeight := b.Header.Height
 
 	for _, txn := range b.Transactions {
@@ -68,23 +65,23 @@ func (c *TokenChainStore) PersistUnspendUTXOsImpl(b *ucore.Block) error {
 			value := output.Value
 
 			if _, ok := unspendUTXOs[programHash]; !ok {
-				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*blockchain.UTXO)
+				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*types.UTXO)
 			}
 
 			if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-				unspendUTXOs[programHash][assetID] = make(map[uint32][]*blockchain.UTXO, 0)
+				unspendUTXOs[programHash][assetID] = make(map[uint32][]*types.UTXO, 0)
 			}
 
 			if _, ok := unspendUTXOs[programHash][assetID][curHeight]; !ok {
 				var err error
 				unspendUTXOs[programHash][assetID][curHeight], err = c.GetUnspentElementFromProgramHash(programHash, assetID, curHeight)
 				if err != nil {
-					unspendUTXOs[programHash][assetID][curHeight] = make([]*blockchain.UTXO, 0)
+					unspendUTXOs[programHash][assetID][curHeight] = make([]*types.UTXO, 0)
 				}
 
 			}
 
-			u := blockchain.UTXO{
+			u := types.UTXO{
 				TxId:  txn.Hash(),
 				Index: uint32(index),
 				Value: value,
@@ -104,10 +101,10 @@ func (c *TokenChainStore) PersistUnspendUTXOsImpl(b *ucore.Block) error {
 				assetID := referTxnOutput.AssetID
 
 				if _, ok := unspendUTXOs[programHash]; !ok {
-					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*blockchain.UTXO)
+					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*types.UTXO)
 				}
 				if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-					unspendUTXOs[programHash][assetID] = make(map[uint32][]*blockchain.UTXO)
+					unspendUTXOs[programHash][assetID] = make(map[uint32][]*types.UTXO)
 				}
 
 				if _, ok := unspendUTXOs[programHash][assetID][height]; !ok {
@@ -138,7 +135,7 @@ func (c *TokenChainStore) PersistUnspendUTXOsImpl(b *ucore.Block) error {
 	for programHash, programHash_value := range unspendUTXOs {
 		for assetId, unspents := range programHash_value {
 			for height, unspent := range unspents {
-				err := c.PersistUnspentWithProgramHash(programHash, assetId, height, unspent)
+				err := c.PersistUnspentWithProgramHash(batch, programHash, assetId, height, unspent)
 				if err != nil {
 					return err
 				}
@@ -150,8 +147,8 @@ func (c *TokenChainStore) PersistUnspendUTXOsImpl(b *ucore.Block) error {
 	return nil
 }
 
-func (c *TokenChainStore) RollbackUnspendUTXOsImpl(b *ucore.Block) error {
-	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*blockchain.UTXO)
+func (c *TokenChainStore) rollbackUnspendUTXOs(batch database.Batch, b *types.Block) error {
+	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*types.UTXO)
 	height := b.Header.Height
 	for _, txn := range b.Transactions {
 		for index, output := range txn.Outputs {
@@ -159,10 +156,10 @@ func (c *TokenChainStore) RollbackUnspendUTXOsImpl(b *ucore.Block) error {
 			assetID := output.AssetID
 			value := output.Value
 			if _, ok := unspendUTXOs[programHash]; !ok {
-				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*blockchain.UTXO)
+				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*types.UTXO)
 			}
 			if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-				unspendUTXOs[programHash][assetID] = make(map[uint32][]*blockchain.UTXO)
+				unspendUTXOs[programHash][assetID] = make(map[uint32][]*types.UTXO)
 			}
 			if _, ok := unspendUTXOs[programHash][assetID][height]; !ok {
 				var err error
@@ -171,7 +168,7 @@ func (c *TokenChainStore) RollbackUnspendUTXOsImpl(b *ucore.Block) error {
 					return errors.New(fmt.Sprintf("[persist] UTXOs programHash:%v, assetId:%v has no unspent UTXO.", programHash, assetID))
 				}
 			}
-			u := blockchain.UTXO{
+			u := types.UTXO{
 				TxId:  txn.Hash(),
 				Index: uint32(index),
 				Value: value,
@@ -197,18 +194,18 @@ func (c *TokenChainStore) RollbackUnspendUTXOsImpl(b *ucore.Block) error {
 				programHash := referTxnOutput.ProgramHash
 				assetID := referTxnOutput.AssetID
 				if _, ok := unspendUTXOs[programHash]; !ok {
-					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*blockchain.UTXO)
+					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*types.UTXO)
 				}
 				if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-					unspendUTXOs[programHash][assetID] = make(map[uint32][]*blockchain.UTXO)
+					unspendUTXOs[programHash][assetID] = make(map[uint32][]*types.UTXO)
 				}
 				if _, ok := unspendUTXOs[programHash][assetID][hh]; !ok {
 					unspendUTXOs[programHash][assetID][hh], err = c.GetUnspentElementFromProgramHash(programHash, assetID, hh)
 					if err != nil {
-						unspendUTXOs[programHash][assetID][hh] = make([]*blockchain.UTXO, 0)
+						unspendUTXOs[programHash][assetID][hh] = make([]*types.UTXO, 0)
 					}
 				}
-				u := blockchain.UTXO{
+				u := types.UTXO{
 					TxId:  referTxn.Hash(),
 					Index: uint32(index),
 					Value: referTxnOutput.Value,
@@ -221,7 +218,7 @@ func (c *TokenChainStore) RollbackUnspendUTXOsImpl(b *ucore.Block) error {
 	for programHash, programHash_value := range unspendUTXOs {
 		for assetId, unspents := range programHash_value {
 			for height, unspent := range unspents {
-				err := c.PersistUnspentWithProgramHash(programHash, assetId, height, unspent)
+				err := c.PersistUnspentWithProgramHash(batch, programHash, assetId, height, unspent)
 				if err != nil {
 					return err
 				}
@@ -233,36 +230,36 @@ func (c *TokenChainStore) RollbackUnspendUTXOsImpl(b *ucore.Block) error {
 	return nil
 }
 
-func (c *TokenChainStore) PersistTransactionsImpl(b *ucore.Block) error {
+func (c *TokenChainStore) persistTransactions(batch database.Batch, b *types.Block) error {
 	for _, txn := range b.Transactions {
-		if err := c.PersistTransaction(txn, b.Header.Height); err != nil {
+		if err := c.PersistTransaction(batch, txn, b.Header.Height); err != nil {
 			return err
 		}
-		if txn.TxType == ucore.RegisterAsset {
-			regPayload := txn.Payload.(*ucore.PayloadRegisterAsset)
-			if blockchain.DefaultLedger.Blockchain.AssetID.IsEqual(txn.Hash()) {
-				if err := c.PersistAsset(txn.Hash(), regPayload.Asset); err != nil {
+		if txn.TxType == types.RegisterAsset {
+			regPayload := txn.Payload.(*types.PayloadRegisterAsset)
+			if c.systemAssetID.IsEqual(txn.Hash()) {
+				if err := c.PersistAsset(batch, txn.Hash(), regPayload.Asset); err != nil {
 					return err
 				}
 			} else {
-				if err := c.PersistAsset(regPayload.Asset.Hash(), regPayload.Asset); err != nil {
+				if err := c.PersistAsset(batch, regPayload.Asset.Hash(), regPayload.Asset); err != nil {
 					return err
 				}
 			}
 		}
-		if txn.TxType == ucore.RechargeToSideChain {
-			rechargePayload := txn.Payload.(*ucore.PayloadRechargeToSideChain)
+		if txn.TxType == types.RechargeToSideChain {
+			rechargePayload := txn.Payload.(*types.PayloadRechargeToSideChain)
 			hash, err := rechargePayload.GetMainchainTxHash()
 			if err != nil {
 				return err
 			}
-			c.PersistMainchainTx(*hash)
+			c.PersistMainchainTx(batch, *hash)
 		}
 	}
 	return nil
 }
 
-func (c *TokenChainStore) PersistUnspendImpl(b *ucore.Block) error {
+func (c *TokenChainStore) persistUnspend(batch database.Batch, b *types.Block) error {
 	unspentPrefix := []byte{byte(blockchain.IX_Unspent)}
 	unspents := make(map[Uint256][]uint16)
 	for _, txn := range b.Transactions {
@@ -302,23 +299,23 @@ func (c *TokenChainStore) PersistUnspendImpl(b *ucore.Block) error {
 		txhash.Serialize(key)
 
 		if len(value) == 0 {
-			c.BatchDelete(key.Bytes())
+			batch.Delete(key.Bytes())
 		} else {
 			unspentArray := blockchain.ToByteArray(value)
-			c.BatchPut(key.Bytes(), unspentArray)
+			batch.Put(key.Bytes(), unspentArray)
 		}
 	}
 
 	return nil
 }
 
-func (c *TokenChainStore) RollbackUnspendImpl(b *ucore.Block) error {
+func (c *TokenChainStore) rollbackUnspend(batch database.Batch, b *types.Block) error {
 	unspentPrefix := []byte{byte(blockchain.IX_Unspent)}
 	unspents := make(map[Uint256][]uint16)
 	for _, txn := range b.Transactions {
 		// remove all utxos created by this transaction
 		txnHash := txn.Hash()
-		c.BatchDelete(append(unspentPrefix, txnHash.Bytes()...))
+		batch.Delete(append(unspentPrefix, txnHash.Bytes()...))
 		if !txn.IsCoinBaseTx() {
 
 			for _, input := range txn.Inputs {
@@ -345,10 +342,10 @@ func (c *TokenChainStore) RollbackUnspendImpl(b *ucore.Block) error {
 		txhash.Serialize(key)
 
 		if len(value) == 0 {
-			c.BatchDelete(key.Bytes())
+			batch.Delete(key.Bytes())
 		} else {
 			unspentArray := blockchain.ToByteArray(value)
-			c.BatchPut(key.Bytes(), unspentArray)
+			batch.Put(key.Bytes(), unspentArray)
 		}
 	}
 

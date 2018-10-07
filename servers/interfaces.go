@@ -1,46 +1,49 @@
 package servers
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
-	ucore "github.com/elastos/Elastos.ELA.SideChain/core"
-	"github.com/elastos/Elastos.ELA.SideChain/errors"
 	"github.com/elastos/Elastos.ELA.SideChain/servers"
+	"github.com/elastos/Elastos.ELA.SideChain/types"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
 )
 
-func InitHttpServers() {
-	servers.HttpServers = &servers.HttpServersBase{}
-	servers.HttpServers.Init()
-	servers.HttpServers.GetPayloadInfo = GetPayloadInfo
-	servers.HttpServers.GetTransactionInfo = GetTransactionInfo
-	servers.HttpServers.SendRawTransaction = SendRawTransaction
+type HttpServiceExtend struct {
+	*servers.HttpService
+	chain *blockchain.BlockChain
 }
 
-func GetPayloadInfo(p ucore.Payload) servers.PayloadInfo {
+func NewHttpService(cfg *servers.Config) *HttpServiceExtend {
+	server := &HttpServiceExtend{
+		HttpService: servers.NewHttpService(cfg),
+		chain:       cfg.Chain,
+	}
+	return server
+}
+
+func GetPayloadInfo(p types.Payload) servers.PayloadInfo {
 	switch object := p.(type) {
-	case *ucore.PayloadCoinBase:
+	case *types.PayloadCoinBase:
 		obj := new(servers.CoinbaseInfo)
 		obj.CoinbaseData = string(object.CoinbaseData)
 		return obj
-	case *ucore.PayloadRegisterAsset:
+	case *types.PayloadRegisterAsset:
 		obj := new(servers.RegisterAssetInfo)
 		obj.Asset = object.Asset
 		value := big.NewInt(int64(object.Amount))
 		obj.Amount = value.Mul(value, big.NewInt(1000000000000000000)).String()
 		obj.Controller = BytesToHexString(BytesReverse(object.Controller.Bytes()))
 		return obj
-	case *ucore.PayloadTransferCrossChainAsset:
+	case *types.PayloadTransferCrossChainAsset:
 		obj := new(servers.TransferCrossChainAssetInfo)
 		obj.CrossChainAddresses = object.CrossChainAddresses
 		obj.OutputIndexes = object.OutputIndexes
 		obj.CrossChainAmounts = object.CrossChainAmounts
 		return obj
-	case *ucore.PayloadTransferAsset:
-	case *ucore.PayloadRecord:
-	case *ucore.PayloadRechargeToSideChain:
+	case *types.PayloadTransferAsset:
+	case *types.PayloadRecord:
+	case *types.PayloadRechargeToSideChain:
 		obj := new(servers.RechargeToSideChainInfo)
 		obj.MainChainTransaction = BytesToHexString(object.MainChainTransaction)
 		obj.Proof = BytesToHexString(object.MerkleProof)
@@ -49,7 +52,7 @@ func GetPayloadInfo(p ucore.Payload) servers.PayloadInfo {
 	return nil
 }
 
-func GetTransactionInfo(header *ucore.Header, tx *ucore.Transaction) *servers.TransactionInfo {
+func GetTransactionInfo(cfg *servers.Config, header *types.Header, tx *types.Transaction) *servers.TransactionInfo {
 	inputs := make([]servers.InputInfo, len(tx.Inputs))
 	for i, v := range tx.Inputs {
 		inputs[i].TxID = servers.ToReversedString(v.Previous.TxID)
@@ -59,7 +62,7 @@ func GetTransactionInfo(header *ucore.Header, tx *ucore.Transaction) *servers.Tr
 
 	outputs := make([]servers.OutputInfo, len(tx.Outputs))
 	for i, v := range tx.Outputs {
-		if v.AssetID.IsEqual(ucore.GetSystemAssetId()) {
+		if v.AssetID.IsEqual(types.GetSystemAssetId()) {
 			outputs[i].Value = v.Value.String()
 		} else {
 			outputs[i].Value = v.TokenValue.String()
@@ -68,7 +71,7 @@ func GetTransactionInfo(header *ucore.Header, tx *ucore.Transaction) *servers.Tr
 		var address string
 		destroyHash := Uint168{}
 		if v.ProgramHash == destroyHash {
-			address = servers.DESTROY_ADDRESS
+			address = servers.DestroyAddress
 		} else {
 			address, _ = v.ProgramHash.ToAddress()
 		}
@@ -97,7 +100,7 @@ func GetTransactionInfo(header *ucore.Header, tx *ucore.Transaction) *servers.Tr
 	var time uint32
 	var blockTime uint32
 	if header != nil {
-		confirmations = blockchain.DefaultLedger.Blockchain.GetBestHeight() - header.Height + 1
+		confirmations = cfg.Chain.GetBestHeight() - header.Height + 1
 		blockHash = servers.ToReversedString(header.Hash())
 		time = header.Timestamp
 		blockTime = header.Timestamp
@@ -118,30 +121,8 @@ func GetTransactionInfo(header *ucore.Header, tx *ucore.Transaction) *servers.Tr
 		BlockTime:      blockTime,
 		TxType:         tx.TxType,
 		PayloadVersion: tx.PayloadVersion,
-		Payload:        servers.HttpServers.GetPayloadInfo(tx.Payload),
+		Payload:        cfg.GetPayloadInfo(tx.Payload),
 		Attributes:     attributes,
 		Programs:       programs,
 	}
-}
-
-func SendRawTransaction(param servers.Params) map[string]interface{} {
-	str, ok := param.String("data")
-	if !ok {
-		return servers.ResponsePack(errors.InvalidParams, "need a string parameter named data")
-	}
-
-	bys, err := HexStringToBytes(str)
-	if err != nil {
-		return servers.ResponsePack(errors.InvalidParams, "hex string to bytes error")
-	}
-	var txn ucore.Transaction
-	if err := txn.Deserialize(bytes.NewReader(bys)); err != nil {
-		return servers.ResponsePack(errors.InvalidTransaction, "transaction deserialize error")
-	}
-
-	if errCode := servers.HttpServers.VerifyAndSendTx(&txn); errCode != errors.Success {
-		return servers.ResponsePack(errCode, errCode.Message())
-	}
-
-	return servers.ResponsePack(errors.Success, servers.ToReversedString(txn.Hash()))
 }

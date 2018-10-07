@@ -2,19 +2,37 @@ package blockchain
 
 import (
 	"errors"
+	"math/big"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
-	ucore "github.com/elastos/Elastos.ELA.SideChain/core"
-	"math/big"
 )
 
-func InitBlockValidator() {
-	blockchain.BlockValidator = &blockchain.BlockValidateBase{}
-	blockchain.BlockValidator.Init()
-	blockchain.BlockValidator.PowCheckTransactionsFee = PowCheckTransactionsFeeImpl
+type Validator struct {
+	*blockchain.Validator
+	cfg *Config
 }
 
-func PowCheckTransactionsFeeImpl(block *ucore.Block) error {
+func NewValidator(cfg *Config) *blockchain.Validator {
+	v := &Validator{
+		cfg: cfg,
+		Validator: blockchain.NewValidator(&blockchain.Config{
+			FoundationAddress: cfg.FoundationAddress,
+			ChainStore:        cfg.ChainStore,
+			AssetId:           cfg.AssetId,
+			PowLimit:          cfg.PowLimit,
+			MaxOrphanBlocks:   cfg.MaxOrphanBlocks,
+			MinMemoryNodes:    cfg.MinMemoryNodes,
+			CheckTxSanity:     cfg.CheckTxSanity,
+			CheckTxContext:    cfg.CheckTxContext,
+		}),
+	}
+	v.RegisterFunc(blockchain.ValidateFuncNames.CheckTransactionsFee, v.checkTransactionsFee)
+	return v.Validator
+}
+
+func (v *Validator) checkTransactionsFee(params ...interface{}) (err error) {
+	block := blockchain.AssertBlock(params[0])
+
 	transactions := block.Transactions
 	var rewardInCoinbase = big.NewInt(0)
 	var totalTxFee = big.NewInt(0)
@@ -37,7 +55,7 @@ func PowCheckTransactionsFeeImpl(block *ucore.Block) error {
 		}
 
 		// Calculate transaction fee
-		totalTxFee.Add(totalTxFee, TxFeeHelper.GetTxFee(tx, blockchain.DefaultLedger.Blockchain.AssetID))
+		totalTxFee.Add(totalTxFee, v.cfg.GetTxFee(tx, v.cfg.AssetId))
 	}
 
 	// Reward in coinbase must match total transaction fee
