@@ -12,11 +12,6 @@ const (
 	MaxTokenValueDataSize = 1024 // 1MB
 )
 
-func InitOutputHelper() {
-	types.SerializeOutput = serializeOutput
-	types.DeserializeOutput = deserializeOutput
-}
-
 func serializeOutput(output *types.Output, w io.Writer) error {
 	err := output.AssetID.Serialize(w)
 	if err != nil {
@@ -76,4 +71,9 @@ func deserializeOutput(output *types.Output, r io.Reader) error {
 	}
 
 	return nil
+}
+
+func init() {
+	types.SerializeOutput = serializeOutput
+	types.DeserializeOutput = deserializeOutput
 }

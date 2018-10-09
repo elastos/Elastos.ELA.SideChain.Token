@@ -5,7 +5,6 @@ import (
 	"runtime"
 
 	bc "github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
-	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	mp "github.com/elastos/Elastos.ELA.SideChain.Token/mempool"
 	pw "github.com/elastos/Elastos.ELA.SideChain.Token/pow"
 	sv "github.com/elastos/Elastos.ELA.SideChain.Token/servers"
@@ -41,7 +40,6 @@ func init() {
 func main() {
 	eladlog.Info("Node version: ", config.Version)
 
-	core.InitOutputHelper()
 	params := config.Parameters
 
 	foundation, err := common.Uint168FromAddress(config.Parameters.FoundationAddress)
