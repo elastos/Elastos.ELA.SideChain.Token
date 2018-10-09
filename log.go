@@ -7,9 +7,9 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/netsync"
 	"github.com/elastos/Elastos.ELA.SideChain/peer"
 	"github.com/elastos/Elastos.ELA.SideChain/pow"
-	"github.com/elastos/Elastos.ELA.SideChain/servers"
-	"github.com/elastos/Elastos.ELA.SideChain/servers/httpjsonrpc"
-	"github.com/elastos/Elastos.ELA.SideChain/servers/httprestful"
+	"github.com/elastos/Elastos.ELA.SideChain/service"
+	"github.com/elastos/Elastos.ELA.SideChain/service/httpjsonrpc"
+	"github.com/elastos/Elastos.ELA.SideChain/service/httprestful"
 )
 
 const LogPath = "./logs/"
@@ -49,7 +49,7 @@ func init() {
 	netsync.UseLogger(synclog)
 	peer.UseLogger(peerlog)
 	pow.UseLogger(minrlog)
-	servers.UseLogger(httplog)
+	service.UseLogger(httplog)
 	httpjsonrpc.UseLogger(rpcslog)
 	httprestful.UseLogger(restlog)
 }
