@@ -5,6 +5,7 @@ import (
 	"runtime"
 
 	bc "github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
+	cr "github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	mp "github.com/elastos/Elastos.ELA.SideChain.Token/mempool"
 	pw "github.com/elastos/Elastos.ELA.SideChain.Token/pow"
 	sv "github.com/elastos/Elastos.ELA.SideChain.Token/servers"
@@ -36,6 +37,8 @@ func init() {
 
 	eladlog.Debug("The Core number is ", coreNum)
 	runtime.GOMAXPROCS(coreNum)
+
+	cr.Init()
 }
 
 func main() {
@@ -115,6 +118,7 @@ func main() {
 		AssetId:           genesisBlock.Transactions[0].Hash(),
 		ExchangeRage:      params.ExchangeRate,
 		ChainStore:        chainStore,
+		Validator:         txValidator,
 	}
 	txPool := mempool.New(&mempoolCfg)
 

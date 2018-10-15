@@ -73,7 +73,7 @@ func deserializeOutput(output *types.Output, r io.Reader) error {
 	return nil
 }
 
-func init() {
+func Init() {
 	types.SerializeOutput = serializeOutput
 	types.DeserializeOutput = deserializeOutput
 }

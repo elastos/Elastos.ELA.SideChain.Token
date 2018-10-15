@@ -188,8 +188,12 @@ func (v *validator) checkRegisterAssetTransaction(txn *types.Transaction) error 
 	return nil
 }
 
-func (v *validator) checkAmountPrecise(amount common.Fixed64, precision byte, assetPrecision byte) bool {
+func checkAmountPrecise(amount common.Fixed64, precision byte, assetPrecision byte) bool {
 	return amount.IntValue()%int64(math.Pow10(int(assetPrecision-precision))) == 0
+}
+
+func checkTokenAmountPrecise(amount big.Int, precision byte, assetPrecision byte) bool {
+	return amount.Int64()%int64(math.Pow10(int(assetPrecision-precision))) == 0
 }
 
 func (v *validator) checkAssetPrecisionImpl(txn *types.Transaction) error {
@@ -214,13 +218,13 @@ func (v *validator) checkAssetPrecisionImpl(txn *types.Transaction) error {
 		precision := asset.Precision
 		for _, output := range outputs {
 			if output.AssetID.IsEqual(v.systemAssetID) {
-				if !v.checkAmountPrecise(output.Value, precision, 8) {
+				if !checkAmountPrecise(output.Value, precision, 8) {
 					return errors.New("Invalide ela asset value,out of precise.")
 					desc := fmt.Sprint("[checkAssetPrecision] The precision of asset is incorrect.")
 					return mempool.RuleError{ErrorCode: mempool.ErrAssetPrecision, Description: desc}
 				}
 			} else {
-				if !v.checkAmountPrecise(output.Value, precision, 18) {
+				if !checkTokenAmountPrecise(output.TokenValue, precision, 18) {
 					desc := fmt.Sprint("[checkAssetPrecision] Invalide asset value,out of precise.")
 					return mempool.RuleError{ErrorCode: mempool.ErrAssetPrecision, Description: desc}
 				}
@@ -239,7 +243,7 @@ func (v *validator) checkTransactionPayloadImpl(txn *types.Transaction) error {
 		}
 		hash := txn.Hash()
 		if hash.IsEqual(v.systemAssetID) {
-			if !v.checkAmountPrecise(pld.Amount, pld.Asset.Precision, 8) {
+			if !checkAmountPrecise(pld.Amount, pld.Asset.Precision, 8) {
 				return errors.New("Invalide ela asset value,out of precise.")
 			}
 		}
