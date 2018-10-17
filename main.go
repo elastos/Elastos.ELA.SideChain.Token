@@ -7,7 +7,6 @@ import (
 	bc "github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
 	cr "github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	mp "github.com/elastos/Elastos.ELA.SideChain.Token/mempool"
-	pw "github.com/elastos/Elastos.ELA.SideChain.Token/pow"
 	sv "github.com/elastos/Elastos.ELA.SideChain.Token/servers"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
@@ -66,7 +65,7 @@ func main() {
 	}
 	defer chainStore.Close()
 
-	chainCfg := bc.Config{
+	bcCfg := blockchain.Config{
 		FoundationAddress: *foundation,
 		ChainStore:        chainStore,
 		AssetId:           genesisBlock.Transactions[0].Hash(),
@@ -74,6 +73,7 @@ func main() {
 		MaxOrphanBlocks:   params.ChainParam.MaxOrphanBlocks,
 		MinMemoryNodes:    params.ChainParam.MinMemoryNodes,
 	}
+
 	mpCfg := mp.Config{
 		FoundationAddress: *foundation,
 		AssetId:           genesisBlock.Transactions[0].Hash(),
@@ -83,7 +83,7 @@ func main() {
 
 	txFeeHelper := mp.NewTokenFeeHelper(&mpCfg)
 	mpCfg.FeeHelper = txFeeHelper
-	chainCfg.GetTxFee = txFeeHelper.GetTxFee
+	bcCfg.GetTxFee = txFeeHelper.FeeHelper.GetTxFee
 
 	eladlog.Info("2. SPV module init")
 	address, err := mempool.GetGenesisAddress(genesisBlock.Hash())
@@ -94,7 +94,7 @@ func main() {
 	serviceCfg := spv.Config{
 		Logger:        spvslog,
 		ListenAddress: address,
-		ChainStore:    chainCfg.ChainStore,
+		ChainStore:    bcCfg.ChainStore,
 	}
 	spvService, err := spv.NewService(&serviceCfg)
 	if err != nil {
@@ -106,17 +106,9 @@ func main() {
 
 	txValidator := mp.NewValidator(&mpCfg)
 	mpCfg.Validator = txValidator
-	chainCfg.CheckTxSanity = txValidator.CheckTransactionSanity
-	chainCfg.CheckTxContext = txValidator.CheckTransactionContext
+	bcCfg.CheckTxSanity = txValidator.CheckTransactionSanity
+	bcCfg.CheckTxContext = txValidator.CheckTransactionContext
 
-	bcCfg := blockchain.Config{
-		FoundationAddress: *foundation,
-		ChainStore:        chainStore,
-		AssetId:           genesisBlock.Transactions[0].Hash(),
-		PowLimit:          params.ChainParam.PowLimit,
-		MaxOrphanBlocks:   params.ChainParam.MaxOrphanBlocks,
-		MinMemoryNodes:    params.ChainParam.MinMemoryNodes,
-	}
 	chain, err := blockchain.New(&bcCfg)
 	if err != nil {
 		eladlog.Fatalf("BlockChain initialize failed, %s", err)
@@ -130,6 +122,7 @@ func main() {
 		ChainStore:        chainStore,
 		Validator:         txValidator,
 	}
+	mempoolCfg.FeeHelper = txFeeHelper.FeeHelper
 	txPool := mempool.New(&mempoolCfg)
 
 	eladlog.Info("3. Start the P2P networks")
@@ -142,7 +135,7 @@ func main() {
 
 	eladlog.Info("4. --Initialize pow service")
 	powParam := params.PowConfiguration
-	powCfg := pw.Config{
+	powCfg := pow.Config{
 		Foundation:                *foundation,
 		MinerAddr:                 powParam.PayToAddr,
 		MinerInfo:                 powParam.MinerInfo,
@@ -152,13 +145,13 @@ func main() {
 		Server:                    server,
 		Chain:                     chain,
 		TxMemPool:                 txPool,
-		TxFeeHelper:               txFeeHelper,
+		TxFeeHelper:               txFeeHelper.FeeHelper,
 		CreateCoinBaseTx:          pow.CreateCoinBaseTx,
 		GenerateBlock:             pow.GenerateBlock,
-		GenerateBlockTransactions: pw.GenerateBlockTransactions,
+		GenerateBlockTransactions: txFeeHelper.GenerateBlockTransactions,
 	}
 
-	powService := pw.NewService(&powCfg)
+	powService := pow.NewService(&powCfg)
 	if params.PowConfiguration.AutoMining {
 		eladlog.Info("Start POW Services")
 		go powService.Start()
@@ -170,7 +163,7 @@ func main() {
 		Chain:                       chain,
 		TxMemPool:                   txPool,
 		PowService:                  powService,
-		GetBlockInfo:                nil,
+		GetBlockInfo:                service.GetBlockInfo,
 		GetTransactionInfo:          sv.GetTransactionInfo,
 		GetTransactionInfoFromBytes: service.GetTransactionInfoFromBytes,
 		GetTransaction:              service.GetTransaction,

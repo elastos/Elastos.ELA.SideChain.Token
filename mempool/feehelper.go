@@ -4,14 +4,20 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"sort"
 
+	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/config"
+	"github.com/elastos/Elastos.ELA.SideChain/mempool"
+	"github.com/elastos/Elastos.ELA.SideChain/pow"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
 	"github.com/elastos/Elastos.ELA/core"
 )
 
 type FeeHelper struct {
+	*mempool.FeeHelper
+
 	exchangeRate float64
 	getReference GetReference
 
@@ -20,6 +26,10 @@ type FeeHelper struct {
 
 func NewTokenFeeHelper(cfg *Config) *FeeHelper {
 	return &FeeHelper{
+		FeeHelper: mempool.NewFeeHelper(&mempool.Config{
+			ExchangeRage: cfg.ExchangeRage,
+			ChainStore:   cfg.ChainStore,
+		}),
 		getReference:  cfg.ChainStore.GetTxReference,
 		exchangeRate:  cfg.ExchangeRage,
 		systemAssetId: cfg.AssetId,
@@ -46,7 +56,7 @@ func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, er
 			return nil, errors.New("GetTxFeeMap mainChainTransaction deserialize failed")
 		}
 
-		crossChainPayload := mainChainTransaction.Payload.(*types.PayloadTransferCrossChainAsset)
+		crossChainPayload := mainChainTransaction.Payload.(*core.PayloadTransferCrossChainAsset)
 
 		for _, v := range tx.Outputs {
 			for i := 0; i < len(crossChainPayload.CrossChainAddresses); i++ {
@@ -136,4 +146,45 @@ func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, er
 		}
 	}
 	return feeMap, nil
+}
+
+func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.Block, coinBaseTx *types.Transaction) {
+	nextBlockHeight := cfg.Chain.GetBestHeight() + 1
+	totalTxsSize := coinBaseTx.GetSize()
+	txCount := 1
+	totalFee := Fixed64(0)
+	var txsByFeeDesc pow.ByFeeDesc
+	txsInPool := cfg.TxMemPool.GetTxsInPool()
+	txsByFeeDesc = make([]*types.Transaction, 0, len(txsInPool))
+	for _, v := range txsInPool {
+		txsByFeeDesc = append(txsByFeeDesc, v)
+	}
+	sort.Sort(txsByFeeDesc)
+
+	for _, tx := range txsByFeeDesc {
+		totalTxsSize = totalTxsSize + tx.GetSize()
+		if totalTxsSize > cfg.MaxBlockSize {
+			break
+		}
+		if txCount >= cfg.MaxTxPerBlock {
+			break
+		}
+
+		if err := blockchain.CheckTransactionFinalize(tx, nextBlockHeight); err != nil {
+			continue
+		}
+
+		fee := t.GetTxFee(tx, cfg.Chain.AssetID)
+		if fee.Cmp(big.NewInt(int64(tx.Fee))) != 0 {
+			continue
+		}
+		msgBlock.Transactions = append(msgBlock.Transactions, tx)
+		totalFee += Fixed64(fee.Int64())
+		txCount++
+	}
+
+	reward := totalFee
+	rewardFoundation := Fixed64(float64(reward) * 0.3)
+	msgBlock.Transactions[0].Outputs[0].Value = rewardFoundation
+	msgBlock.Transactions[0].Outputs[1].Value = Fixed64(reward) - rewardFoundation
 }
