@@ -2,17 +2,19 @@ package mempool
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"math/big"
 
-	"fmt"
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
 	"github.com/elastos/Elastos.ELA.SideChain/spv"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 	"github.com/elastos/Elastos.ELA.Utility/common"
-	"math"
 )
+
+const MinRegisterAssetTxFee = 1000000000
 
 type validator struct {
 	*mempool.Validator
@@ -193,7 +195,20 @@ func checkAmountPrecise(amount common.Fixed64, precision byte, assetPrecision by
 }
 
 func checkTokenAmountPrecise(amount big.Int, precision byte, assetPrecision byte) bool {
-	return amount.Int64()%int64(math.Pow10(int(assetPrecision-precision))) == 0
+	value := amount.String()
+	var decimal string
+	if len(value) <= 18 {
+		decimal = value
+	} else {
+		decimal = value[len(value)-18:]
+	}
+	decimalValue, ok := new(big.Int).SetString(decimal, 10)
+	if !ok {
+		fmt.Errorf("invalid token amount")
+		return false
+	}
+
+	return decimalValue.Int64()%int64(math.Pow10(int(assetPrecision-precision))) == 0
 }
 
 func (v *validator) checkAssetPrecisionImpl(txn *types.Transaction) error {
@@ -289,6 +304,10 @@ func (v *validator) checkTransactionBalanceImpl(txn *types.Transaction) error {
 	if txn.IsTransferCrossChainAssetTx() || txn.IsRechargeToSideChainTx() {
 		if int(elaBalance) < config.Parameters.MinCrossChainTxFee {
 			return errors.New("crosschain transaction fee is not enough")
+		}
+	} else if txn.IsRegisterAssetTx() {
+		if int(elaBalance) < MinRegisterAssetTxFee {
+			return errors.New("register asset transaction fee is not enough")
 		}
 	} else {
 		if int(elaBalance) < config.Parameters.PowConfiguration.MinTxFee {
