@@ -164,6 +164,18 @@ func (v *validator) checkRegisterAssetTransaction(txn *types.Transaction) error 
 
 	//asset name should be different
 	assets := v.db.GetAssets()
+	for char := range payload.Asset.Name {
+		if char > 127 {
+			return fmt.Errorf("allow only ASCII characters in asset name")
+		}
+	}
+
+	for char := range payload.Asset.Description {
+		if char > 127 {
+			return fmt.Errorf("allow only ASCII characters in asset description")
+		}
+	}
+
 	for _, asset := range assets {
 		if asset.Name == payload.Asset.Name {
 			return fmt.Errorf("Asset name has been registed")
