@@ -249,7 +249,7 @@ func (c *TokenChainStore) persistTransactions(batch database.Batch, b *types.Blo
 		}
 		if txn.TxType == types.RechargeToSideChain {
 			rechargePayload := txn.Payload.(*types.PayloadRechargeToSideChain)
-			hash, err := rechargePayload.GetMainchainTxHash()
+			hash, err := rechargePayload.GetMainchainTxHash(txn.PayloadVersion)
 			if err != nil {
 				return err
 			}
