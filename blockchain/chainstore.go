@@ -31,6 +31,7 @@ func NewChainStore(genesisBlock *types.Block, assetID Uint256) (*blockchain.Chai
 	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistUnspend, store.persistUnspend)
 
 	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspendUTXOs, store.rollbackUnspendUTXOs)
+	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackTransactions, store.rollbackTransactions)
 	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspend, store.rollbackUnspend)
 
 	return store.ChainStore, nil
@@ -141,6 +142,36 @@ func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Blo
 				}
 			}
 
+		}
+	}
+
+	return nil
+}
+
+func (c *TokenChainStore) rollbackTransactions(batch database.Batch, b *types.Block) error {
+	for _, txn := range b.Transactions {
+		if err := c.RollbackTransaction(batch, txn); err != nil {
+			return err
+		}
+		if txn.TxType == types.RegisterAsset {
+			if c.systemAssetID.IsEqual(txn.Hash()) {
+				if err := c.RollbackAsset(batch, txn.Hash()); err != nil {
+					return err
+				}
+			} else {
+				regPayload := txn.Payload.(*types.PayloadRegisterAsset)
+				if err := c.RollbackAsset(batch, regPayload.Asset.Hash()); err != nil {
+					return err
+				}
+			}
+		}
+		if txn.TxType == types.RechargeToSideChain {
+			rechargePayload := txn.Payload.(*types.PayloadRechargeToSideChain)
+			hash, err := rechargePayload.GetMainchainTxHash(txn.PayloadVersion)
+			if err != nil {
+				return err
+			}
+			c.RollbackMainchainTx(batch, *hash)
 		}
 	}
 
