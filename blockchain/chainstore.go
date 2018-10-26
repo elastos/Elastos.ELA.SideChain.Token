@@ -11,10 +11,16 @@ import (
 	. "github.com/elastos/Elastos.ELA.Utility/common"
 )
 
+const (
+	DestroyAsset = 0x09
+	Destroy_Asset byte = 0xc1
+)
+
 type TokenChainStore struct {
 	*blockchain.ChainStore
 	systemAssetID Uint256
 }
+
 
 func NewChainStore(genesisBlock *types.Block, assetID Uint256) (*blockchain.ChainStore, error) {
 	chainStore, err := blockchain.NewChainStore(genesisBlock)
@@ -29,10 +35,12 @@ func NewChainStore(genesisBlock *types.Block, assetID Uint256) (*blockchain.Chai
 	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistUnspendUTXOs, store.persistUnspendUTXOs)
 	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
 	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistUnspend, store.persistUnspend)
+	store.RegisterFunctions(true, "adddestroytokentag", store.persistDestroyTokenTag)
 
 	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspendUTXOs, store.rollbackUnspendUTXOs)
 	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackTransactions, store.rollbackTransactions)
 	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspend, store.rollbackUnspend)
+	store.RegisterFunctions(false, "rollbackdestroytokentag", store.rollbackDestroyTokenTag)
 
 	return store.ChainStore, nil
 }
@@ -148,6 +156,40 @@ func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Blo
 	return nil
 }
 
+func (c *TokenChainStore) persistDestroyTokenTag(batch database.Batch, b *types.Block) error {
+	for _, txn := range b.Transactions {
+		if txn.TxType == DestroyAsset {
+			value := bytes.NewBuffer(nil)
+			WriteUint32(value, b.Height)
+			assetName := txn.Payload.(*types.PayloadDestroyAsset).Asset.Name
+			// generate key
+			key := bytes.NewBuffer(nil)
+			// add asset prefix.
+			key.WriteByte(byte(Destroy_Asset))
+			// contact asset id
+			key.WriteString(assetName)
+			return batch.Put(key.Bytes(), value.Bytes())
+		}
+	}
+	return nil
+}
+
+func (c *TokenChainStore) rollbackDestroyTokenTag(batch database.Batch, b *types.Block) error {
+	for _, txn := range b.Transactions {
+		if txn.TxType == DestroyAsset {
+			assetName := txn.Payload.(*types.PayloadDestroyAsset).Asset.Name
+			// generate key
+			key := bytes.NewBuffer(nil)
+			// add asset prefix.
+			key.WriteByte(byte(Destroy_Asset))
+			// contact asset id
+			key.WriteString(assetName)
+			return batch.Delete(key.Bytes())
+		}
+	}
+	return nil
+}
+
 func (c *TokenChainStore) rollbackTransactions(batch database.Batch, b *types.Block) error {
 	for _, txn := range b.Transactions {
 		if err := c.RollbackTransaction(batch, txn); err != nil {
@@ -172,6 +214,13 @@ func (c *TokenChainStore) rollbackTransactions(batch database.Batch, b *types.Bl
 				return err
 			}
 			c.RollbackMainchainTx(batch, *hash)
+		}
+		if txn.TxType == DestroyAsset {
+			var asset types.Asset
+			asset = txn.Payload.(*types.PayloadDestroyAsset).Asset
+			if err := c.PersistAsset(batch, asset.Hash(), asset); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -285,6 +334,13 @@ func (c *TokenChainStore) persistTransactions(batch database.Batch, b *types.Blo
 				return err
 			}
 			c.PersistMainchainTx(batch, *hash)
+		}
+
+		if txn.TxType == DestroyAsset {
+			assetHash := txn.Payload.(*types.PayloadDestroyAsset).Asset.Hash()
+			if err := c.RollbackAsset(batch, assetHash); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
