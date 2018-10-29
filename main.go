@@ -73,16 +73,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	chainStore, err := bc.NewChainStore(genesisBlock, genesisBlock.Transactions[0].Hash())
+	TokenchainStore, err := bc.NewChainStore(genesisBlock, genesisBlock.Transactions[0].Hash())
 	if err != nil {
 		eladlog.Fatalf("open chain store failed, %s", err)
 		os.Exit(1)
 	}
-	defer chainStore.Close()
+	defer TokenchainStore.Close()
 
 	bcCfg := blockchain.Config{
 		FoundationAddress: *foundation,
-		ChainStore:        chainStore,
+		ChainStore:        TokenchainStore.ChainStore,
 		AssetId:           genesisBlock.Transactions[0].Hash(),
 		PowLimit:          params.ChainParam.PowLimit,
 		MaxOrphanBlocks:   params.ChainParam.MaxOrphanBlocks,
@@ -93,7 +93,7 @@ func main() {
 		FoundationAddress: *foundation,
 		AssetId:           genesisBlock.Transactions[0].Hash(),
 		ExchangeRage:      params.ExchangeRate,
-		ChainStore:        chainStore,
+		ChainStore:        TokenchainStore.ChainStore,
 	}
 
 	txFeeHelper := mp.NewTokenFeeHelper(&mpCfg)
@@ -134,7 +134,7 @@ func main() {
 		FoundationAddress: *foundation,
 		AssetId:           genesisBlock.Transactions[0].Hash(),
 		ExchangeRage:      params.ExchangeRate,
-		ChainStore:        chainStore,
+		ChainStore:        TokenchainStore.ChainStore,
 		Validator:         txValidator,
 	}
 	mempoolCfg.FeeHelper = txFeeHelper.FeeHelper
@@ -184,7 +184,7 @@ func main() {
 		GetTransaction:              service.GetTransaction,
 		GetPayloadInfo:              sv.GetPayloadInfo,
 		GetPayload:                  service.GetPayload,
-	})
+	}, TokenchainStore)
 
 	startHttpJsonRpc(params.HttpJsonPort, service)
 	startHttpRESTful(params.HttpRestPort, params.RestCertPath,
@@ -201,7 +201,7 @@ func main() {
 	}
 
 	if params.PrintSyncState {
-		go printSyncState(chainStore, server)
+		go printSyncState(TokenchainStore.ChainStore, server)
 	}
 
 	select {}
@@ -233,6 +233,7 @@ func startHttpJsonRpc(port uint16, service *sv.HttpServiceExtend) {
 	s.RegisterAction("createauxblock", service.CreateAuxBlock, "paytoaddress")
 	s.RegisterAction("togglemining", service.ToggleMining, "mining")
 	s.RegisterAction("discretemining", service.DiscreteMining, "count")
+	s.RegisterAction("getreceivedbyaddress", service.GetReceivedByAddress, "addr")
 
 	go func() {
 		if err := s.Start(); err != nil {

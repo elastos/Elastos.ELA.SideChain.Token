@@ -1,23 +1,25 @@
 package service
 
 import (
+	"fmt"
 	"math/big"
 
-	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/service"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
+	"github.com/elastos/Elastos.ELA.Utility/http/util"
 )
 
 type HttpServiceExtend struct {
 	*service.HttpService
-	chain *blockchain.BlockChain
+	chain *blockchain.TokenChainStore
 }
 
-func NewHttpService(cfg *service.Config) *HttpServiceExtend {
+func NewHttpService(cfg *service.Config, store *blockchain.TokenChainStore) *HttpServiceExtend {
 	server := &HttpServiceExtend{
 		HttpService: service.NewHttpService(cfg),
-		chain:       cfg.Chain,
+		chain:       store,
 	}
 	return server
 }
@@ -137,4 +139,37 @@ func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Tra
 		Attributes:     attributes,
 		Programs:       programs,
 	}
+}
+
+func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}, error) {
+	tokenValueList := make(map[Uint256]*big.Int)
+	var elaValue Fixed64
+	str, ok := param.String("addr")
+	if !ok {
+		return nil, fmt.Errorf(service.InvalidParams.String())
+	}
+
+	programHash, err := Uint168FromAddress(str)
+	if err != nil {
+		return nil, fmt.Errorf(service.InvalidParams.String())
+	}
+	unspends, err := s.chain.GetUnspents(*programHash)
+	for assetID, utxos := range unspends {
+		for _, utxo := range utxos {
+			if assetID == types.GetSystemAssetId() {
+				value, _ := Fixed64FromBytes(utxo.Value)
+				elaValue += *value
+			} else {
+				value := new(big.Int).SetBytes(utxo.Value)
+				tokenValueList[assetID] = tokenValueList[assetID].Add(tokenValueList[assetID], value)
+			}
+		}
+	}
+	valueList := make(map[string]string)
+	valueList[types.GetSystemAssetId().String()] = elaValue.String()
+	for k, v := range tokenValueList {
+		reverse, _ := Uint256FromBytes(BytesReverse(k.Bytes()))
+		valueList[reverse.String()] = v.String()
+	}
+	return valueList, nil
 }
