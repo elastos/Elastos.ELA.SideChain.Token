@@ -14,7 +14,10 @@ import (
 	"github.com/elastos/Elastos.ELA.Utility/common"
 )
 
-const MinRegisterAssetTxFee = 1000000000
+const (
+	MinRegisterAssetTxFee = 1000000000
+	CheckRegisterAssetTx = "checkregisterassettx"
+)
 
 type validator struct {
 	*mempool.Validator
@@ -46,6 +49,7 @@ func NewValidator(cfg *Config) *mempool.Validator {
 	val.RegisterSanityFunc(mempool.FuncNames.CheckTransactionPayload, val.checkTransactionPayloadImpl)
 	val.RegisterContextFunc(mempool.FuncNames.CheckTransactionBalance, val.checkTransactionBalanceImpl)
 	val.RegisterContextFunc(mempool.FuncNames.CheckReferencedOutput, val.checkReferencedOutputImpl)
+	val.RegisterContextFunc(CheckRegisterAssetTx, val.CheckRegisterAssetTx)
 	return val.Validator
 }
 
