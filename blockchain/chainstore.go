@@ -7,11 +7,11 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/database"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
-	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 )
 
 const IX_Unspent_UTXO = 0x91
@@ -28,11 +28,11 @@ type UTXO struct {
 	Value   []byte
 }
 
-func (u *UTXO) ValueString() string{
+func (u *UTXO) ValueString() string {
 	if u.AssetID == types.GetSystemAssetId() {
 		number, _ := Fixed64FromBytes(u.Value)
 		return number.String()
-	}else {
+	} else {
 		return new(big.Int).SetBytes(u.Value).String()
 	}
 }
@@ -47,7 +47,7 @@ func (u *UTXO) Serialize(w io.Writer) error {
 	}
 
 	if err := u.AssetID.Serialize(w); err != nil {
-
+		return err
 	}
 	if err := WriteVarBytes(w, u.Value); err != nil {
 		return err

@@ -235,3 +235,4 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 	}
 	return result, nil
 }
+
