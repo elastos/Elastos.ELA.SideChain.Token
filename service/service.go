@@ -211,25 +211,26 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 		if err != nil {
 			return nil, errors.New("Invalid address: " + address)
 		}
-		unspents, err := s.chain.GetUnspents(*programHash)
+		differentAssets, err := s.chain.GetUnspents(*programHash)
 		if err != nil {
 			return nil, errors.New("cannot get asset with program")
 		}
-
-		for _, unspent := range unspents[types.GetSystemAssetId()] {
-			tx, height, err := s.chain.GetTransaction(unspent.TxID)
-			if err != nil {
-				return nil, errors.New("unknown transaction " + unspent.TxID.String() + " from persisted utxo")
+		for _, asset := range differentAssets {
+			for _, unspent := range asset {
+				tx, height, err := s.chain.GetTransaction(unspent.TxID)
+				if err != nil {
+					return nil, errors.New("unknown transaction " + unspent.TxID.String() + " from persisted utxo")
+				}
+				result = append(result, UTXOInfo{
+					Amount:        unspent.ValueString(),
+					AssetId:       BytesToHexString(BytesReverse(unspent.AssetID[:])),
+					Txid:          BytesToHexString(BytesReverse(unspent.TxID[:])),
+					VOut:          unspent.Index,
+					Address:       address,
+					Confirmations: bestHeight - height + 1,
+					OutputLock:    tx.Outputs[unspent.Index].OutputLock,
+				})
 			}
-			result = append(result, UTXOInfo{
-				Amount:        unspent.ValueString(),
-				AssetId:       BytesToHexString(BytesReverse(unspent.AssetID[:])),
-				Txid:          BytesToHexString(BytesReverse(unspent.TxID[:])),
-				VOut:          unspent.Index,
-				Address:       address,
-				Confirmations: bestHeight - height + 1,
-				OutputLock:    tx.Outputs[unspent.Index].OutputLock,
-			})
 		}
 	}
 	return result, nil
