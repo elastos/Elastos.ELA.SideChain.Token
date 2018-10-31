@@ -9,7 +9,7 @@ import (
 
 const (
 	// MaxTokenValueDataSize is the maximum allowed length of token value data.
-	MaxTokenValueDataSize = 1024 // 1MB
+	MaxTokenValueDataSize = 8 * 4 + 1 // allow one bool(int8) and 4 uint64, that is 8 * 4 + 1 = 33 bytes.
 )
 
 func serializeOutput(output *types.Output, w io.Writer) error {
