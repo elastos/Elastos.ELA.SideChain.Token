@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -172,4 +173,64 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}
 		valueList[reverse.String()] = v.String()
 	}
 	return valueList, nil
+}
+
+func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) {
+	bestHeight := s.chain.GetHeight()
+	type UTXOInfo struct {
+		AssetId       string `json:"assetid"`
+		Txid          string `json:"txid"`
+		VOut          uint32 `json:"vout"`
+		Address       string `json:"address"`
+		Amount        string `json:"amount"`
+		Confirmations uint32 `json:"confirmations"`
+		OutputLock    uint32 `json:"outputlock"`
+	}
+
+	var result []UTXOInfo
+
+	if _, ok := param["addresses"]; !ok {
+		return nil, errors.New("need a param called address")
+	}
+	var addressString []string
+	switch addresses := param["addresses"].(type) {
+	case []interface{}:
+		for _, v := range addresses {
+			str, ok := v.(string)
+			if !ok {
+				return nil, errors.New("please send a string")
+			}
+			addressString = append(addressString, str)
+		}
+	default:
+		return nil, errors.New("wrong type")
+	}
+
+	for _, address := range addressString {
+		programHash, err := Uint168FromAddress(address)
+		if err != nil {
+			return nil, errors.New("Invalid address: " + address)
+		}
+		unspents, err := s.chain.GetUnspents(*programHash)
+		if err != nil {
+			return nil, errors.New("cannot get asset with program")
+		}
+
+		for _, unspent := range unspents[types.GetSystemAssetId()] {
+			tx, height, err := s.chain.GetTransaction(unspent.TxID)
+			if err != nil {
+				return nil, errors.New("unknown transaction " + unspent.TxID.String() + " from persisted utxo")
+			}
+			result = append(result, UTXOInfo{
+				Amount:        unspent.ValueString(),
+				AssetId:       BytesToHexString(BytesReverse(unspent.AssetID[:])),
+				Txid:          BytesToHexString(BytesReverse(unspent.TxID[:])),
+				VOut:          unspent.Index,
+				Address:       address,
+				Confirmations: bestHeight - height + 1,
+				OutputLock:    tx.Outputs[unspent.Index].OutputLock,
+			})
+		}
+	}
+	return result, nil
 }
