@@ -156,12 +156,12 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}
 	}
 	unspends, err := s.chain.GetUnspents(*programHash)
 	for assetID, utxos := range unspends {
-		for _, utxo := range utxos {
+		for _, u := range utxos {
 			if assetID == types.GetSystemAssetId() {
-				value, _ := Fixed64FromBytes(utxo.Value)
+				value, _ := Fixed64FromBytes(u.Value)
 				elaValue += *value
 			} else {
-				value := new(big.Int).SetBytes(utxo.Value)
+				value := new(big.Int).SetBytes(u.Value)
 				tokenValueList[assetID] = tokenValueList[assetID].Add(tokenValueList[assetID], value)
 			}
 		}
