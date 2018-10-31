@@ -21,14 +21,14 @@ type TokenChainStore struct {
 	systemAssetID Uint256
 }
 
-type UTXO struct {
+type utxo struct {
 	TxID    Uint256
 	Index   uint32
 	AssetID Uint256
 	Value   []byte
 }
 
-func (u *UTXO) ValueString() string {
+func (u *utxo) ValueString() string {
 	if u.AssetID == types.GetSystemAssetId() {
 		number, _ := Fixed64FromBytes(u.Value)
 		return number.String()
@@ -37,7 +37,7 @@ func (u *UTXO) ValueString() string {
 	}
 }
 
-func (u *UTXO) Serialize(w io.Writer) error {
+func (u *utxo) Serialize(w io.Writer) error {
 	if err := u.TxID.Serialize(w); err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (u *UTXO) Serialize(w io.Writer) error {
 	return nil
 }
 
-func (u *UTXO) Deserialize(r io.Reader) error {
+func (u *utxo) Deserialize(r io.Reader) error {
 	var err error
 	if err := u.TxID.Deserialize(r); err != nil {
 		return err
@@ -100,25 +100,25 @@ func NewChainStore(genesisBlock *types.Block, assetID Uint256) (*TokenChainStore
 }
 
 func (c *TokenChainStore) GetTxReference(tx *types.Transaction) (map[*types.Input]*types.Output, error) {
-	//UTXO input /  Outputs
+	//utxo input /  Outputs
 	reference := make(map[*types.Input]*types.Output)
 	// Key index，v UTXOInput
-	for _, utxo := range tx.Inputs {
-		transaction, _, err := c.GetTransaction(utxo.Previous.TxID)
+	for _, u := range tx.Inputs {
+		transaction, _, err := c.GetTransaction(u.Previous.TxID)
 		if err != nil {
 			return nil, errors.New("GetTxReference failed, previous transaction not found")
 		}
-		index := utxo.Previous.Index
+		index := u.Previous.Index
 		if int(index) >= len(transaction.Outputs) {
 			return nil, errors.New("GetTxReference failed, refIdx out of range.")
 		}
-		reference[utxo] = transaction.Outputs[index]
+		reference[u] = transaction.Outputs[index]
 	}
 	return reference, nil
 }
 
-func (c *TokenChainStore) GetUnspents(programHash Uint168) (map[Uint256][]*UTXO, error) {
-	uxtoUnspents := make(map[Uint256][]*UTXO)
+func (c *TokenChainStore) GetUnspents(programHash Uint168) (map[Uint256][]*utxo, error) {
+	uxtoUnspents := make(map[Uint256][]*utxo)
 
 	prefix := []byte{byte(IX_Unspent_UTXO)}
 	key := append(prefix, programHash.Bytes()...)
@@ -140,15 +140,15 @@ func (c *TokenChainStore) GetUnspents(programHash Uint168) (map[Uint256][]*UTXO,
 		}
 
 		// read unspent list in store
-		unspents := make([]*UTXO, listNum)
+		unspents := make([]*utxo, listNum)
 		for i := 0; i < int(listNum); i++ {
-			var utxo UTXO
-			err := utxo.Deserialize(r)
+			var u utxo
+			err := u.Deserialize(r)
 			if err != nil {
 				return nil, err
 			}
 
-			unspents[i] = &utxo
+			unspents[i] = &u
 		}
 		uxtoUnspents[assetid] = append(uxtoUnspents[assetid], unspents[:]...)
 	}
@@ -156,7 +156,7 @@ func (c *TokenChainStore) GetUnspents(programHash Uint168) (map[Uint256][]*UTXO,
 	return uxtoUnspents, nil
 }
 
-func (c *TokenChainStore) GetUnspentElementFromProgramHash(programHash Uint168, assetid Uint256, height uint32) ([]*UTXO, error) {
+func (c *TokenChainStore) GetUnspentElementFromProgramHash(programHash Uint168, assetid Uint256, height uint32) ([]*utxo, error) {
 	prefix := []byte{byte(IX_Unspent_UTXO)}
 	prefix = append(prefix, programHash.Bytes()...)
 	prefix = append(prefix, assetid.Bytes()...)
@@ -176,21 +176,21 @@ func (c *TokenChainStore) GetUnspentElementFromProgramHash(programHash Uint168, 
 	}
 
 	// read unspent list in store
-	unspents := make([]*UTXO, listNum)
+	unspents := make([]*utxo, listNum)
 	for i := 0; i < int(listNum); i++ {
-		var utxo UTXO
-		err := utxo.Deserialize(r)
+		var u utxo
+		err := u.Deserialize(r)
 		if err != nil {
 			return nil, err
 		}
 
-		unspents[i] = &utxo
+		unspents[i] = &u
 	}
 
 	return unspents, nil
 }
 
-func (c *TokenChainStore) PersistUnspentWithProgramHash(batch database.Batch, programHash Uint168, assetid Uint256, height uint32, unspents []*UTXO) error {
+func (c *TokenChainStore) PersistUnspentWithProgramHash(batch database.Batch, programHash Uint168, assetid Uint256, height uint32, unspents []*utxo) error {
 	prefix := []byte{byte(IX_Unspent_UTXO)}
 	prefix = append(prefix, programHash.Bytes()...)
 	prefix = append(prefix, assetid.Bytes()...)
@@ -218,7 +218,7 @@ func (c *TokenChainStore) PersistUnspentWithProgramHash(batch database.Batch, pr
 }
 
 func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Block) error {
-	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*UTXO)
+	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*utxo)
 	curHeight := b.Header.Height
 
 	for _, txn := range b.Transactions {
@@ -227,30 +227,30 @@ func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Blo
 			assetID := output.AssetID
 
 			if _, ok := unspendUTXOs[programHash]; !ok {
-				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*UTXO)
+				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*utxo)
 			}
 
 			if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-				unspendUTXOs[programHash][assetID] = make(map[uint32][]*UTXO, 0)
+				unspendUTXOs[programHash][assetID] = make(map[uint32][]*utxo, 0)
 			}
 
 			if _, ok := unspendUTXOs[programHash][assetID][curHeight]; !ok {
 				var err error
 				unspendUTXOs[programHash][assetID][curHeight], err = c.GetUnspentElementFromProgramHash(programHash, assetID, curHeight)
 				if err != nil {
-					unspendUTXOs[programHash][assetID][curHeight] = make([]*UTXO, 0)
+					unspendUTXOs[programHash][assetID][curHeight] = make([]*utxo, 0)
 				}
 
 			}
 			var valueBytes []byte
-			var utxo UTXO
+			var u utxo
 			if assetID.IsEqual(types.GetSystemAssetId()) {
 				valueBytes, _ = output.Value.Bytes()
 			} else {
 				valueBytes = output.TokenValue.Bytes()
 			}
-			utxo = UTXO{txn.Hash(), uint32(index), assetID, valueBytes}
-			unspendUTXOs[programHash][assetID][curHeight] = append(unspendUTXOs[programHash][assetID][curHeight], &utxo)
+			u = utxo{txn.Hash(), uint32(index), assetID, valueBytes}
+			unspendUTXOs[programHash][assetID][curHeight] = append(unspendUTXOs[programHash][assetID][curHeight], &u)
 		}
 
 		if !txn.IsCoinBaseTx() {
@@ -265,16 +265,16 @@ func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Blo
 				assetID := referTxnOutput.AssetID
 
 				if _, ok := unspendUTXOs[programHash]; !ok {
-					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*UTXO)
+					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*utxo)
 				}
 				if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-					unspendUTXOs[programHash][assetID] = make(map[uint32][]*UTXO)
+					unspendUTXOs[programHash][assetID] = make(map[uint32][]*utxo)
 				}
 
 				if _, ok := unspendUTXOs[programHash][assetID][height]; !ok {
 					unspendUTXOs[programHash][assetID][height], err = c.GetUnspentElementFromProgramHash(programHash, assetID, height)
 					if err != nil {
-						return errors.New(fmt.Sprintf("[persist] UTXOs programHash:%v, assetId:%v height:%v has no unspent UTXO.", programHash, assetID, height))
+						return errors.New(fmt.Sprintf("[persist] UTXOs programHash:%v, assetId:%v height:%v has no unspent utxo.", programHash, assetID, height))
 					}
 				}
 
@@ -289,7 +289,7 @@ func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Blo
 					}
 				}
 				if !flag {
-					return errors.New(fmt.Sprintf("[persist] UTXOs NOT find UTXO by txid: %x, index: %d.", referTxn.Hash(), index))
+					return errors.New(fmt.Sprintf("[persist] UTXOs NOT find utxo by txid: %x, index: %d.", referTxn.Hash(), index))
 				}
 			}
 		}
@@ -342,36 +342,36 @@ func (c *TokenChainStore) rollbackTransactions(batch database.Batch, b *types.Bl
 }
 
 func (c *TokenChainStore) rollbackUnspendUTXOs(batch database.Batch, b *types.Block) error {
-	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*UTXO)
+	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*utxo)
 	height := b.Header.Height
 	for _, txn := range b.Transactions {
 		for index, output := range txn.Outputs {
 			programHash := output.ProgramHash
 			assetID := output.AssetID
 			if _, ok := unspendUTXOs[programHash]; !ok {
-				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*UTXO)
+				unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*utxo)
 			}
 			if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-				unspendUTXOs[programHash][assetID] = make(map[uint32][]*UTXO)
+				unspendUTXOs[programHash][assetID] = make(map[uint32][]*utxo)
 			}
 			if _, ok := unspendUTXOs[programHash][assetID][height]; !ok {
 				var err error
 				unspendUTXOs[programHash][assetID][height], err = c.GetUnspentElementFromProgramHash(programHash, assetID, height)
 				if err != nil {
-					return errors.New(fmt.Sprintf("[persist] UTXOs programHash:%v, assetId:%v has no unspent UTXO.", programHash, assetID))
+					return errors.New(fmt.Sprintf("[persist] UTXOs programHash:%v, assetId:%v has no unspent utxo.", programHash, assetID))
 				}
 			}
 			var valueBytes []byte
-			var utxo UTXO
+			var u utxo
 			if assetID.IsEqual(types.GetSystemAssetId()) {
 				valueBytes, _ = output.Value.Bytes()
 			} else {
 				valueBytes = output.TokenValue.Bytes()
 			}
-			utxo = UTXO{txn.Hash(), uint32(index), assetID, valueBytes}
+			u = utxo{txn.Hash(), uint32(index), assetID, valueBytes}
 			var position int
 			for i, unspend := range unspendUTXOs[programHash][assetID][height] {
-				if unspend.TxID == utxo.TxID && unspend.Index == utxo.Index {
+				if unspend.TxID == u.TxID && unspend.Index == u.Index {
 					position = i
 					break
 				}
@@ -390,26 +390,26 @@ func (c *TokenChainStore) rollbackUnspendUTXOs(batch database.Batch, b *types.Bl
 				programHash := referTxnOutput.ProgramHash
 				assetID := referTxnOutput.AssetID
 				if _, ok := unspendUTXOs[programHash]; !ok {
-					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*UTXO)
+					unspendUTXOs[programHash] = make(map[Uint256]map[uint32][]*utxo)
 				}
 				if _, ok := unspendUTXOs[programHash][assetID]; !ok {
-					unspendUTXOs[programHash][assetID] = make(map[uint32][]*UTXO)
+					unspendUTXOs[programHash][assetID] = make(map[uint32][]*utxo)
 				}
 				if _, ok := unspendUTXOs[programHash][assetID][hh]; !ok {
 					unspendUTXOs[programHash][assetID][hh], err = c.GetUnspentElementFromProgramHash(programHash, assetID, hh)
 					if err != nil {
-						unspendUTXOs[programHash][assetID][hh] = make([]*UTXO, 0)
+						unspendUTXOs[programHash][assetID][hh] = make([]*utxo, 0)
 					}
 				}
 				var valueBytes []byte
-				var utxo UTXO
+				var u utxo
 				if assetID.IsEqual(types.GetSystemAssetId()) {
 					valueBytes, _ = referTxnOutput.Value.Bytes()
 				} else {
 					valueBytes = referTxnOutput.TokenValue.Bytes()
 				}
-				utxo = UTXO{txn.Hash(), uint32(index), assetID, valueBytes}
-				unspendUTXOs[programHash][assetID][hh] = append(unspendUTXOs[programHash][assetID][hh], &utxo)
+				u = utxo{txn.Hash(), uint32(index), assetID, valueBytes}
+				unspendUTXOs[programHash][assetID][hh] = append(unspendUTXOs[programHash][assetID][hh], &u)
 			}
 		}
 	}
