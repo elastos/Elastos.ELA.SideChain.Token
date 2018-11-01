@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
@@ -80,7 +81,7 @@ func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Tra
 		if v.AssetID.IsEqual(types.GetSystemAssetId()) {
 			outputs[i].Value = v.Value.String()
 		} else {
-			outputs[i].Value = v.TokenValue.String()
+			outputs[i].Value = v.TokenValue.Div(&v.TokenValue, big.NewInt(int64(math.Pow10(18)))).String()
 		}
 		outputs[i].Index = uint32(i)
 		var address string
@@ -235,4 +236,3 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 	}
 	return result, nil
 }
-
