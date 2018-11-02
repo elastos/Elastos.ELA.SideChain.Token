@@ -188,7 +188,7 @@ func main() {
 
 	startHttpJsonRpc(params.HttpJsonPort, service)
 	startHttpRESTful(params.HttpRestPort, params.RestCertPath,
-		params.RestKeyPath, service.HttpService)
+		params.RestKeyPath, service)
 
 	if params.HttpInfoStart {
 		go httpnodeinfo.New(&httpnodeinfo.Config{
@@ -233,8 +233,8 @@ func startHttpJsonRpc(port uint16, service *sv.HttpServiceExtend) {
 	s.RegisterAction("createauxblock", service.CreateAuxBlock, "paytoaddress")
 	s.RegisterAction("togglemining", service.ToggleMining, "mining")
 	s.RegisterAction("discretemining", service.DiscreteMining, "count")
-	s.RegisterAction("getreceivedbyaddress", service.GetReceivedByAddress, "addr")
-	s.RegisterAction("listunspent", service.ListUnspent, "addresses")
+	s.RegisterAction("getreceivedbyaddress", service.GetReceivedByAddress, "addr", "assetid")
+	s.RegisterAction("listunspent", service.ListUnspent, "addresses", "assetid")
 
 	go func() {
 		if err := s.Start(); err != nil {
@@ -243,7 +243,7 @@ func startHttpJsonRpc(port uint16, service *sv.HttpServiceExtend) {
 	}()
 }
 
-func startHttpRESTful(port uint16, certFile, keyFile string, service *service.HttpService) {
+func startHttpRESTful(port uint16, certFile, keyFile string, service *sv.HttpServiceExtend) {
 	var (
 		s = restful.NewServer(&restful.Config{
 			ServePort: port,
@@ -337,9 +337,9 @@ func startHttpRESTful(port uint16, certFile, keyFile string, service *service.Ht
 	s.RegisterGetAction(ApiGetTransaction, service.GetTransactionByHash)
 	s.RegisterGetAction(ApiGetAsset, service.GetAssetByHash)
 	s.RegisterGetAction(ApiGetUTXOByAddr, service.GetUnspendsByAddr)
-	s.RegisterGetAction(ApiGetUTXOByAsset, service.GetUnspendsByAsset)
+	//s.RegisterGetAction(ApiGetUTXOByAsset, service.GetUnspendsByAsset)
 	s.RegisterGetAction(ApiGetBalanceByAddr, service.GetBalanceByAddr)
-	s.RegisterGetAction(ApiGetBalanceByAsset, service.GetBalanceByAsset)
+	//s.RegisterGetAction(ApiGetBalanceByAsset, service.GetBalanceByAsset)
 	s.RegisterGetAction(ApiRestart, restartServer)
 
 	s.RegisterPostAction(ApiSendRawTransaction, sendRawTransaction)
