@@ -163,6 +163,9 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}
 				elaValue += *value
 			} else {
 				value := new(big.Int).SetBytes(u.Value)
+				if _, ok := tokenValueList[assetID]; !ok {
+					tokenValueList[assetID] = new(big.Int)
+				}
 				tokenValueList[assetID] = tokenValueList[assetID].Add(tokenValueList[assetID], value)
 			}
 		}
@@ -171,9 +174,14 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}
 	valueList[types.GetSystemAssetId().String()] = elaValue.String()
 	for k, v := range tokenValueList {
 		reverse, _ := Uint256FromBytes(BytesReverse(k.Bytes()))
-		valueList[reverse.String()] = v.String()
+		totalValue, _ := new(big.Int).SetString(v.String(), 10)
+		valueList[reverse.String()] = totalValue.Div(totalValue, big.NewInt(int64(math.Pow10(18)))).String()
 	}
-	return valueList, nil
+	if assetID, ok := param.String("assetid"); ok {
+		return map[string]string{assetID: valueList[assetID]}, nil
+	} else {
+		return valueList, nil
+	}
 }
 
 func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) {
@@ -188,12 +196,12 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 		OutputLock    uint32 `json:"outputlock"`
 	}
 
-	var result []UTXOInfo
+	var allResults, results []UTXOInfo
 
 	if _, ok := param["addresses"]; !ok {
 		return nil, errors.New("need a param called address")
 	}
-	var addressString []string
+	var addressStrings []string
 	switch addresses := param["addresses"].(type) {
 	case []interface{}:
 		for _, v := range addresses {
@@ -201,13 +209,13 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 			if !ok {
 				return nil, errors.New("please send a string")
 			}
-			addressString = append(addressString, str)
+			addressStrings = append(addressStrings, str)
 		}
 	default:
 		return nil, errors.New("wrong type")
 	}
 
-	for _, address := range addressString {
+	for _, address := range addressStrings {
 		programHash, err := Uint168FromAddress(address)
 		if err != nil {
 			return nil, errors.New("Invalid address: " + address)
@@ -222,7 +230,7 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 				if err != nil {
 					return nil, errors.New("unknown transaction " + unspent.TxID.String() + " from persisted utxo")
 				}
-				result = append(result, UTXOInfo{
+				allResults = append(allResults, UTXOInfo{
 					Amount:        unspent.ValueString(),
 					AssetId:       BytesToHexString(BytesReverse(unspent.AssetID[:])),
 					Txid:          BytesToHexString(BytesReverse(unspent.TxID[:])),
@@ -234,5 +242,96 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 			}
 		}
 	}
-	return result, nil
+	if assetID, ok := param.String("assetid"); ok {
+		for _, result := range allResults {
+			if result.AssetId == assetID {
+				results = append(results, result)
+			}
+		}
+	} else {
+		results = allResults
+	}
+	return results, nil
+}
+
+func (s *HttpServiceExtend) GetUnspendsByAddr(param util.Params) (interface{}, error) {
+	addr, ok := param.String("addr")
+	if !ok {
+		return nil, errors.New(service.InvalidParams.String())
+	}
+
+	programHash, err := Uint168FromAddress(addr)
+	if err != nil {
+		return nil, errors.New(service.InvalidParams.String())
+	}
+	type UTXOUnspentInfo struct {
+		TxID  string
+		Index uint32
+		Value string
+	}
+	type Result struct {
+		AssetId   string
+		AssetName string
+		Utxo      []UTXOUnspentInfo
+	}
+	var results []Result
+	unspends, err := s.chain.GetUnspents(*programHash)
+
+	for k, u := range unspends {
+		asset, err := s.chain.GetAsset(k)
+		if err != nil {
+			return nil, errors.New(service.InternalError.String())
+		}
+		var unspendsInfo []UTXOUnspentInfo
+		for _, v := range u {
+			unspendsInfo = append(unspendsInfo, UTXOUnspentInfo{Value: v.ValueString(), TxID: BytesToHexString(BytesReverse(v.TxID[:])), Index: v.Index,})
+		}
+		results = append(results, struct {
+			AssetId   string
+			AssetName string
+			Utxo      []UTXOUnspentInfo
+		}{BytesToHexString(BytesReverse(k[:])), asset.Name, unspendsInfo})
+	}
+	return results, nil
+}
+
+func (s *HttpServiceExtend) GetBalanceByAddr(param util.Params) (interface{}, error) {
+	tokenValueList := make(map[Uint256]*big.Int)
+	var elaValue Fixed64
+	str, ok := param.String("addr")
+	if !ok {
+		return nil, fmt.Errorf(service.InvalidParams.String())
+	}
+
+	programHash, err := Uint168FromAddress(str)
+	if err != nil {
+		return nil, fmt.Errorf(service.InvalidParams.String())
+	}
+	unspends, err := s.chain.GetUnspents(*programHash)
+	for assetID, utxos := range unspends {
+		for _, u := range utxos {
+			if assetID == types.GetSystemAssetId() {
+				value, _ := Fixed64FromBytes(u.Value)
+				elaValue += *value
+			} else {
+				value := new(big.Int).SetBytes(u.Value)
+				if _, ok := tokenValueList[assetID]; !ok {
+					tokenValueList[assetID] = new(big.Int)
+				}
+				tokenValueList[assetID] = tokenValueList[assetID].Add(tokenValueList[assetID], value)
+			}
+		}
+	}
+	valueList := make(map[string]string)
+	valueList[types.GetSystemAssetId().String()] = elaValue.String()
+	for k, v := range tokenValueList {
+		reverse, _ := Uint256FromBytes(BytesReverse(k.Bytes()))
+		totalValue, _ := new(big.Int).SetString(v.String(), 10)
+		valueList[reverse.String()] = totalValue.Div(totalValue, big.NewInt(int64(math.Pow10(18)))).String()
+	}
+	if assetID, ok := param.String("assetid"); ok {
+		return map[string]string{assetID: valueList[assetID]}, nil
+	} else {
+		return valueList, nil
+	}
 }
