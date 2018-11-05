@@ -40,6 +40,10 @@ const (
 
 	restfulTlsPort = 443
 )
+var (
+	Version   string
+	GoVersion string
+)
 
 func init() {
 	var coreNum int
@@ -56,8 +60,8 @@ func init() {
 }
 
 func main() {
-	eladlog.Info("Node version: ", config.Version)
-
+	eladlog.Info("Node version: ", Version)
+	eladlog.Info(GoVersion)
 	params := config.Parameters
 
 	foundation, err := common.Uint168FromAddress(config.Parameters.FoundationAddress)
