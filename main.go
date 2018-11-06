@@ -239,6 +239,7 @@ func startHttpJsonRpc(port uint16, service *sv.HttpServiceExtend) {
 	s.RegisterAction("discretemining", service.DiscreteMining, "count")
 	s.RegisterAction("getreceivedbyaddress", service.GetReceivedByAddress, "addr", "assetid")
 	s.RegisterAction("listunspent", service.ListUnspent, "addresses", "assetid")
+	s.RegisterAction("getassetlist", service.GetAssetList)
 
 	go func() {
 		if err := s.Start(); err != nil {
