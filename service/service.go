@@ -284,7 +284,10 @@ func (s *HttpServiceExtend) GetUnspendsByAddr(param util.Params) (interface{}, e
 		}
 		var unspendsInfo []UTXOUnspentInfo
 		for _, v := range u {
-			unspendsInfo = append(unspendsInfo, UTXOUnspentInfo{Value: v.ValueString(), TxID: BytesToHexString(BytesReverse(v.TxID[:])), Index: v.Index,})
+			unspendsInfo = append(unspendsInfo, UTXOUnspentInfo{
+				Value: v.ValueString(),
+				TxID: BytesToHexString(BytesReverse(v.TxID[:])),
+				Index: v.Index,})
 		}
 		results = append(results, struct {
 			AssetId   string
@@ -334,4 +337,26 @@ func (s *HttpServiceExtend) GetBalanceByAddr(param util.Params) (interface{}, er
 	} else {
 		return valueList, nil
 	}
+}
+
+func (s *HttpServiceExtend) GetAssetList(param util.Params) (interface{}, error) {
+	type AssetInfo struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Precision   byte   `json:"precision"`
+		Height      uint32 `json:"height"`
+		ID          string `json:"assetid"`
+	}
+	var assetArray []AssetInfo
+	assets := s.chain.GetAssets()
+	for assetID, asset := range assets {
+		assetArray = append(assetArray, AssetInfo{
+			asset.Name,
+			asset.Description,
+			asset.Precision,
+			asset.Height,
+			BytesToHexString(BytesReverse(assetID[:]))})
+	}
+
+	return assetArray, nil
 }
