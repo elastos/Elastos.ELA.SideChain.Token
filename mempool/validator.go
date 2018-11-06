@@ -16,7 +16,7 @@ import (
 
 const (
 	MinRegisterAssetTxFee = 1000000000
-	CheckRegisterAssetTx = "checkregisterassettx"
+	CheckRegisterAssetTx  = "checkregisterassettx"
 )
 
 type validator struct {
@@ -168,13 +168,17 @@ func (v *validator) checkRegisterAssetTransaction(txn *types.Transaction) error 
 
 	//asset name should be different
 	assets := v.db.GetAssets()
-	for char := range payload.Asset.Name {
-		if char > 127 {
-			return fmt.Errorf("allow only ASCII characters in asset name")
+	if len(payload.Asset.Name) == 0 {
+		return fmt.Errorf("name is empty")
+	}
+
+	for _, char := range payload.Asset.Name {
+		if char < 48 || (char > 57 && char < 65) || (char > 90 && char < 97) || char > 122 {
+			return fmt.Errorf("allow only letters and numbers in asset name")
 		}
 	}
 
-	for char := range payload.Asset.Description {
+	for _, char := range payload.Asset.Description {
 		if char > 127 {
 			return fmt.Errorf("allow only ASCII characters in asset description")
 		}
