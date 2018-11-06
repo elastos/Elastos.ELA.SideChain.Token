@@ -22,6 +22,35 @@ type TokenChainStore struct {
 	systemAssetID Uint256
 }
 
+type AssetInfo struct {
+	types.Asset
+	Height uint32
+}
+
+func (a *AssetInfo) Serialize(w io.Writer) error {
+	if err := a.Asset.Serialize(w); err != nil {
+		return err
+	}
+
+	if err := WriteUint32(w, a.Height); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *AssetInfo) Deserialize(r io.Reader) error {
+	var err error
+	if err := a.Asset.Deserialize(r); err != nil {
+		return err
+	}
+	if a.Asset.Hash() != types.GetSystemAssetId() {
+		if a.Height, err = ReadUint32(r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type utxo struct {
 	TxID    Uint256
 	Index   uint32
@@ -438,14 +467,8 @@ func (c *TokenChainStore) persistTransactions(batch database.Batch, b *types.Blo
 		}
 		if txn.TxType == types.RegisterAsset {
 			regPayload := txn.Payload.(*types.PayloadRegisterAsset)
-			if c.systemAssetID.IsEqual(txn.Hash()) {
-				if err := c.PersistAsset(batch, txn.Hash(), regPayload.Asset); err != nil {
-					return err
-				}
-			} else {
-				if err := c.PersistAsset(batch, regPayload.Asset.Hash(), regPayload.Asset); err != nil {
-					return err
-				}
+			if err := c.PersistAsset(batch, AssetInfo{regPayload.Asset, b.Height}); err != nil {
+				return err
 			}
 		}
 		if txn.TxType == types.RechargeToSideChain {
@@ -550,5 +573,54 @@ func (c *TokenChainStore) rollbackUnspend(batch database.Batch, b *types.Block) 
 		}
 	}
 
+	return nil
+}
+
+func (c *TokenChainStore) GetAssets() map[Uint256]AssetInfo {
+	assets := make(map[Uint256]AssetInfo)
+
+	iterator := c.NewIterator([]byte{byte(blockchain.ST_Info)})
+	for iterator.Next() {
+		reader := bytes.NewReader(iterator.Key())
+
+		// read prefix
+		_, _ = ReadBytes(reader, 1)
+		var assetID Uint256
+		assetID.Deserialize(reader)
+
+		asset := new(AssetInfo)
+		asset.Deserialize(bytes.NewReader(iterator.Value()))
+
+		assets[assetID] = *asset
+	}
+
+	return assets
+}
+
+func (c *TokenChainStore) PersistAsset(batch database.Batch, asset AssetInfo) error {
+	//we will not register "ELA" here, because ELA has been registered in the genesis block.
+	if asset.Name == "ELA" {
+		return errors.New("you can't register \"ELA\", man")
+	}
+	w := bytes.NewBuffer(nil)
+
+	asset.Serialize(w)
+	// generate key
+	assetKey := new(bytes.Buffer)
+	// add asset prefix.
+	assetKey.WriteByte(byte(blockchain.ST_Info))
+	// contact asset id
+	assetID := asset.Hash()
+	assetID.Serialize(assetKey)
+
+	return batch.Put(assetKey.Bytes(), w.Bytes())
+}
+
+func (c *TokenChainStore) RollbackAsset(batch database.Batch, assetID Uint256) error {
+	// it is impossible to rollback ela asset
+	key := new(bytes.Buffer)
+	key.WriteByte(byte(blockchain.ST_Info))
+	assetID.Serialize(key)
+	batch.Delete(key.Bytes())
 	return nil
 }
