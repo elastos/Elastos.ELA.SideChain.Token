@@ -179,7 +179,7 @@ func (v *validator) checkRegisterAssetTransaction(txn *types.Transaction) error 
 	}
 
 	for _, char := range payload.Asset.Description {
-		if char > 127 {
+		if 32 > char || char > 126 {
 			return fmt.Errorf("allow only ASCII characters in asset description")
 		}
 	}
