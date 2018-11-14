@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -286,7 +287,7 @@ func (s *HttpServiceExtend) GetUnspendsByAddr(param util.Params) (interface{}, e
 		for _, v := range u {
 			unspendsInfo = append(unspendsInfo, UTXOUnspentInfo{
 				Value: v.ValueString(),
-				TxID: BytesToHexString(BytesReverse(v.TxID[:])),
+				TxID:  BytesToHexString(BytesReverse(v.TxID[:])),
 				Index: v.Index,})
 		}
 		results = append(results, struct {
@@ -337,6 +338,32 @@ func (s *HttpServiceExtend) GetBalanceByAddr(param util.Params) (interface{}, er
 	} else {
 		return valueList, nil
 	}
+}
+
+func (s *HttpServiceExtend) GetAssetByHash(param util.Params) (interface{}, error) {
+	str, ok := param.String("hash")
+	if !ok {
+		return nil, errors.New(service.InvalidParams.String())
+	}
+	hashBytes, err := service.FromReversedString(str)
+	if err != nil {
+		return nil, errors.New(service.InvalidParams.String())
+	}
+	var hash Uint256
+	err = hash.Deserialize(bytes.NewReader(hashBytes))
+	if err != nil {
+		return nil, errors.New(service.InvalidParams.String())
+	}
+	asset, err := s.chain.GetAsset(hash)
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
+	if false {
+		w := new(bytes.Buffer)
+		asset.Serialize(w)
+		return BytesToHexString(w.Bytes()), nil
+	}
+	return asset, nil
 }
 
 func (s *HttpServiceExtend) GetAssetList(param util.Params) (interface{}, error) {

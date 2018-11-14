@@ -208,7 +208,6 @@ func main() {
 
 func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Server {
 	s := jsonrpc.NewServer(&jsonrpc.Config{ServePort: port})
-
 	s.RegisterAction("setloglevel", service.SetLogLevel, "level")
 	s.RegisterAction("getblock", service.GetBlockByHash, "blockhash", "verbosity")
 	s.RegisterAction("getcurrentheight", service.GetBlockHeight)
@@ -232,6 +231,7 @@ func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Serve
 	s.RegisterAction("discretemining", service.DiscreteMining, "count")
 	s.RegisterAction("getreceivedbyaddress", service.GetReceivedByAddress, "addr", "assetid")
 	s.RegisterAction("listunspent", service.ListUnspent, "addresses", "assetid")
+	s.RegisterAction("getassetbyhash", service.GetAssetByHash, "hash")
 	s.RegisterAction("getassetlist", service.GetAssetList)
 
 	return s

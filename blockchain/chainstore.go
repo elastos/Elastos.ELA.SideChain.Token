@@ -43,7 +43,7 @@ func (a *AssetInfo) Deserialize(r io.Reader) error {
 	if err := a.Asset.Deserialize(r); err != nil {
 		return err
 	}
-	if a.Asset.Hash() != types.GetSystemAssetId() {
+	if a.Asset.Name != "ELA" {
 		if a.Height, err = ReadUint32(r); err != nil {
 			return err
 		}
@@ -574,6 +574,21 @@ func (c *TokenChainStore) rollbackUnspend(batch database.Batch, b *types.Block) 
 	}
 
 	return nil
+}
+
+func (c *TokenChainStore) GetAsset(hash Uint256) (*AssetInfo, error) {
+	assetInfo := new(AssetInfo)
+	prefix := []byte{byte(blockchain.ST_Info)}
+	data, err := c.Get(append(prefix, hash.Bytes()...))
+	if err != nil {
+		return nil, err
+	}
+	err = assetInfo.Deserialize(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	return assetInfo, nil
 }
 
 func (c *TokenChainStore) GetAssets() map[Uint256]AssetInfo {
