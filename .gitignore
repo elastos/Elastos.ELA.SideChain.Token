@@ -10,12 +10,15 @@ build/
 .log
 .DS_Store
 /logs/*
+/data_regt/*
+/data_test/*
 /SPVLogs/*
 /Chain/*
 /Chain_UnitTest/*
 /glide.lock
 vendor/*
 /token
+*.conf
 *.json
 *.bin
 *.db
