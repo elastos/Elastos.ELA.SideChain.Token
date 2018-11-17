@@ -2,165 +2,159 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
+	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"time"
 
 	bc "github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
-	cr "github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	mp "github.com/elastos/Elastos.ELA.SideChain.Token/mempool"
 	sv "github.com/elastos/Elastos.ELA.SideChain.Token/service"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
-	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
 	"github.com/elastos/Elastos.ELA.SideChain/pow"
 	"github.com/elastos/Elastos.ELA.SideChain/server"
 	"github.com/elastos/Elastos.ELA.SideChain/service"
-	"github.com/elastos/Elastos.ELA.SideChain/service/httpnodeinfo"
 	"github.com/elastos/Elastos.ELA.SideChain/spv"
 
-	"github.com/elastos/Elastos.ELA.Utility/common"
 	"github.com/elastos/Elastos.ELA.Utility/elalog"
 	"github.com/elastos/Elastos.ELA.Utility/http/jsonrpc"
 	"github.com/elastos/Elastos.ELA.Utility/http/restful"
 	"github.com/elastos/Elastos.ELA.Utility/http/util"
+	"github.com/elastos/Elastos.ELA.Utility/signal"
 )
 
 const (
-	defaultMultiCoreNum = 4
-
 	printStateInterval = 10 * time.Second
-
-	restfulTlsPort = 443
 )
+
 var (
-	Version   string
+	// Build version generated when build program.
+	Version string
+
+	// The go source code version at build.
 	GoVersion string
 )
 
-func init() {
-	var coreNum int
-	if config.Parameters.MultiCoreNum > defaultMultiCoreNum {
-		coreNum = int(config.Parameters.MultiCoreNum)
-	} else {
-		coreNum = defaultMultiCoreNum
-	}
-
-	eladlog.Debug("The Core number is ", coreNum)
-	runtime.GOMAXPROCS(coreNum)
-
-	cr.Init()
-}
-
 func main() {
-	eladlog.Info("Node version: ", Version)
-	eladlog.Info(GoVersion)
-	params := config.Parameters
+	// Use all processor cores.
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	foundation, err := common.Uint168FromAddress(config.Parameters.FoundationAddress)
-	if err != nil {
-		eladlog.Info("Please set correct foundation address in config file")
+	// Block and transaction processing can cause bursty allocations.  This
+	// limits the garbage collector from excessively overallocating during
+	// bursts.  This value was arrived at with the help of profiling live
+	// usage.
+	debug.SetGCPercent(10)
+
+	eladlog.Infof("Node version: %s", Version)
+	eladlog.Info(GoVersion)
+
+	if loadConfigErr != nil {
+		eladlog.Fatalf("load config file failed %s", loadConfigErr)
 		os.Exit(-1)
 	}
 
-	eladlog.Info("1. BlockChain init")
-	genesisBlock, err := bc.GenesisBlock()
-	if err != nil {
-		eladlog.Fatalf("Get genesis block failed, error %s", err)
-		os.Exit(1)
-	}
+	// listen interrupt signals.
+	interrupt := signal.NewInterrupt()
 
-	TokenchainStore, err := bc.NewChainStore(genesisBlock, genesisBlock.Transactions[0].Hash())
+	eladlog.Info("1. BlockChain init")
+	chainStore, err := bc.NewChainStore(cfg.dataDir,
+		activeNetParams.GenesisBlock, activeNetParams.ElaAssetId)
 	if err != nil {
 		eladlog.Fatalf("open chain store failed, %s", err)
 		os.Exit(1)
 	}
-	defer TokenchainStore.Close()
+	defer chainStore.Close()
 
-	bcCfg := blockchain.Config{
-		FoundationAddress: *foundation,
-		ChainStore:        TokenchainStore.ChainStore,
-		AssetId:           genesisBlock.Transactions[0].Hash(),
-		PowLimit:          params.ChainParam.PowLimit,
-		MaxOrphanBlocks:   params.ChainParam.MaxOrphanBlocks,
-		MinMemoryNodes:    params.ChainParam.MinMemoryNodes,
+	chainCfg := blockchain.Config{
+		ChainParams: activeNetParams,
+		ChainStore:  chainStore.ChainStore,
 	}
 
-	mpCfg := mp.Config{
-		FoundationAddress: *foundation,
-		AssetId:           genesisBlock.Transactions[0].Hash(),
-		ExchangeRage:      params.ExchangeRate,
-		ChainStore:        TokenchainStore.ChainStore,
+	mempoolCfg := mp.Config{
+		ChainParams: activeNetParams,
+		ChainStore:  chainStore.ChainStore,
 	}
-
-	txFeeHelper := mp.NewTokenFeeHelper(&mpCfg)
-	mpCfg.FeeHelper = txFeeHelper
-	bcCfg.GetTxFee = txFeeHelper.FeeHelper.GetTxFee
+	txFeeHelper := mp.NewFeeHelper(&mempoolCfg)
+	mempoolCfg.FeeHelper = txFeeHelper
+	chainCfg.GetTxFee = txFeeHelper.FeeHelper.GetTxFee
 
 	eladlog.Info("2. SPV module init")
-	address, err := mempool.GetGenesisAddress(genesisBlock.Hash())
+	genesisHash := activeNetParams.GenesisBlock.Hash()
+	programHash, err := mempool.GenesisToProgramHash(&genesisHash)
 	if err != nil {
-		eladlog.Fatalf("Genesis block hash to address failed, %s", err)
+		eladlog.Fatalf("Genesis block hash to programHash failed, %s", err)
 		os.Exit(1)
 	}
-	serviceCfg := spv.Config{
-		Logger:        spvslog,
-		ListenAddress: address,
-		ChainStore:    bcCfg.ChainStore,
+
+	genesisAddress, err := programHash.ToAddress()
+	if err != nil {
+		eladlog.Fatalf("Genesis program hash to address failed, %s", err)
+		os.Exit(1)
 	}
-	spvService, err := spv.NewService(&serviceCfg)
+
+	spvCfg := spv.Config{
+		DataDir:        filepath.Join(cfg.dataDir, "data_spv"),
+		Magic:          activeNetParams.SpvParams.Magic,
+		DefaultPort:    activeNetParams.SpvParams.DefaultPort,
+		SeedList:       activeNetParams.SpvParams.SeedList,
+		Foundation:     activeNetParams.SpvParams.Foundation,
+		GenesisAddress: genesisAddress,
+		TxStore:        spv.NewTxStore(chainStore.ChainStore),
+	}
+	spvService, err := spv.NewService(&spvCfg)
 	if err != nil {
 		eladlog.Fatalf("SPV module initialize failed, %s", err)
 		os.Exit(1)
 	}
+	mempoolCfg.SpvService = spvService
+
+	defer spvService.Stop()
 	spvService.Start()
-	mpCfg.SpvService = spvService
 
-	txValidator := mp.NewValidator(&mpCfg)
-	mpCfg.Validator = txValidator
-	bcCfg.CheckTxSanity = txValidator.CheckTransactionSanity
-	bcCfg.CheckTxContext = txValidator.CheckTransactionContext
+	txValidator := mp.NewValidator(&mempoolCfg)
+	mempoolCfg.Validator = txValidator
+	chainCfg.CheckTxSanity = txValidator.CheckTransactionSanity
+	chainCfg.CheckTxContext = txValidator.CheckTransactionContext
 
-	chain, err := blockchain.New(&bcCfg)
+	chain, err := blockchain.New(&chainCfg)
 	if err != nil {
 		eladlog.Fatalf("BlockChain initialize failed, %s", err)
 		os.Exit(1)
 	}
+	chainCfg.Validator = bc.NewValidator(chain, &bc.Config{
+		ChainParams: activeNetParams,
+		GetTxFee:    txFeeHelper.GetTxFee,
+	})
 
-	mempoolCfg := mempool.Config{
-		FoundationAddress: *foundation,
-		AssetId:           genesisBlock.Transactions[0].Hash(),
-		ExchangeRage:      params.ExchangeRate,
-		ChainStore:        TokenchainStore.ChainStore,
-		Validator:         txValidator,
+	mpCfg := mempool.Config{
+		ChainParams: activeNetParams,
+		ChainStore:  chainStore.ChainStore,
+		Validator:   txValidator,
 	}
-	mempoolCfg.FeeHelper = txFeeHelper.FeeHelper
-	txPool := mempool.New(&mempoolCfg)
+	mpCfg.FeeHelper = txFeeHelper.FeeHelper
+	txPool := mempool.New(&mpCfg)
 
 	eladlog.Info("3. Start the P2P networks")
-	server, err := server.New(chain, txPool)
+	server, err := server.New(chain, txPool, activeNetParams)
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)
 		os.Exit(1)
 	}
+	defer server.Stop()
 	server.Start()
 
 	eladlog.Info("4. --Initialize pow service")
-	powParam := params.PowConfiguration
 	powCfg := pow.Config{
-		Foundation:                *foundation,
-		MinerAddr:                 powParam.PayToAddr,
-		MinerInfo:                 powParam.MinerInfo,
-		LimitBits:                 params.ChainParam.PowLimitBits,
-		MaxBlockSize:              params.MaxBlockSize,
-		MaxTxPerBlock:             params.MaxTxInBlock,
+		ChainParams:               activeNetParams,
+		MinerAddr:                 cfg.MinerAddr,
+		MinerInfo:                 cfg.MinerInfo,
 		Server:                    server,
 		Chain:                     chain,
 		TxMemPool:                 txPool,
@@ -171,51 +165,51 @@ func main() {
 	}
 
 	powService := pow.NewService(&powCfg)
-	if params.PowConfiguration.AutoMining {
+	if cfg.Mining {
 		eladlog.Info("Start POW Services")
 		go powService.Start()
 	}
 
 	eladlog.Info("5. --Start the RPC service")
 	service := sv.NewHttpService(&service.Config{
-		Server:                      server,
-		Chain:                       chain,
-		TxMemPool:                   txPool,
-		PowService:                  powService,
-		GetBlockInfo:                service.GetBlockInfo,
-		GetTransactionInfo:          sv.GetTransactionInfo,
-		GetTransactionInfoFromBytes: service.GetTransactionInfoFromBytes,
-		GetTransaction:              service.GetTransaction,
-		GetPayloadInfo:              sv.GetPayloadInfo,
-		GetPayload:                  service.GetPayload,
-	}, TokenchainStore)
+		Server:             server,
+		Chain:              chain,
+		TxMemPool:          txPool,
+		PowService:         powService,
+		GetBlockInfo:       service.GetBlockInfo,
+		GetTransactionInfo: sv.GetTransactionInfo,
+		GetTransaction:     service.GetTransaction,
+		GetPayloadInfo:     sv.GetPayloadInfo,
+		GetPayload:         service.GetPayload,
+	}, chainStore)
 
-	startHttpJsonRpc(params.HttpJsonPort, service)
-	startHttpRESTful(params.HttpRestPort, params.RestCertPath,
-		params.RestKeyPath, service)
+	rpcServer := newJsonRpcServer(cfg.HttpJsonPort, service)
+	defer rpcServer.Stop()
+	go func() {
+		if err := rpcServer.Start(); err != nil {
+			eladlog.Errorf("Start HttpJsonRpc server failed, %s", err.Error())
+		}
+	}()
 
-	if params.HttpInfoStart {
-		go httpnodeinfo.New(&httpnodeinfo.Config{
-			NodePort:     params.NodePort,
-			HttpJsonPort: params.HttpJsonPort,
-			HttpRestPort: params.HttpRestPort,
-			Chain:        chain,
-			Server:       server,
-		}).Start()
+	restServer := newRESTfulServer(cfg.HttpRestPort, service.HttpService)
+	defer restServer.Stop()
+	go func() {
+		if err := restServer.Start(); err != nil {
+			restlog.Errorf("Start HttpRESTful server failed, %s", err.Error())
+		}
+	}()
+
+	if cfg.MonitorState {
+		go printSyncState(chainStore.ChainStore, server)
 	}
 
-	if params.PrintSyncState {
-		go printSyncState(TokenchainStore.ChainStore, server)
-	}
-
-	select {}
+	<-interrupt.C
 }
 
-func startHttpJsonRpc(port uint16, service *sv.HttpServiceExtend) {
+func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Server {
 	s := jsonrpc.NewServer(&jsonrpc.Config{ServePort: port})
 
 	s.RegisterAction("setloglevel", service.SetLogLevel, "level")
-	s.RegisterAction("getinfo", service.GetInfo)
 	s.RegisterAction("getblock", service.GetBlockByHash, "blockhash", "verbosity")
 	s.RegisterAction("getcurrentheight", service.GetBlockHeight)
 	s.RegisterAction("getblockhash", service.GetBlockHash, "height")
@@ -228,12 +222,11 @@ func startHttpJsonRpc(port uint16, service *sv.HttpServiceExtend) {
 	s.RegisterAction("sendrawtransaction", service.SendRawTransaction, "data")
 	s.RegisterAction("getbestblockhash", service.GetBestBlockHash)
 	s.RegisterAction("getblockcount", service.GetBlockCount)
-	s.RegisterAction("getblockbyheight", service.GetBlockByHeight)
-	s.RegisterAction("getdestroyedtransactions", service.GetDestroyedTransactionsByHeight)
+	s.RegisterAction("getblockbyheight", service.GetBlockByHeight, "height")
+	s.RegisterAction("getdestroyedtransactions", service.GetDestroyedTransactionsByHeight, "height")
 	s.RegisterAction("getexistdeposittransactions", service.GetExistDepositTransactions)
 	s.RegisterAction("gettransactioninfo", service.GetTransactionInfoByHash)
-	s.RegisterAction("help", service.AuxHelp)
-	s.RegisterAction("submitsideauxblock", service.SubmitSideAuxBlock, "blockhash", "auxpow")
+	s.RegisterAction("submitsideauxblock", service.SubmitAuxBlock, "blockhash", "auxpow")
 	s.RegisterAction("createauxblock", service.CreateAuxBlock, "paytoaddress")
 	s.RegisterAction("togglemining", service.ToggleMining, "mining")
 	s.RegisterAction("discretemining", service.DiscreteMining, "count")
@@ -241,48 +234,12 @@ func startHttpJsonRpc(port uint16, service *sv.HttpServiceExtend) {
 	s.RegisterAction("listunspent", service.ListUnspent, "addresses", "assetid")
 	s.RegisterAction("getassetlist", service.GetAssetList)
 
-	go func() {
-		if err := s.Start(); err != nil {
-			eladlog.Errorf("Start HttpJsonRpc service failed, %s", err.Error())
-		}
-	}()
+	return s
 }
 
-func startHttpRESTful(port uint16, certFile, keyFile string, service *sv.HttpServiceExtend) {
+func newRESTfulServer(port uint16, service *service.HttpService) *restful.Server {
 	var (
-		s = restful.NewServer(&restful.Config{
-			ServePort: port,
-			NetListen: func(port uint16) (net.Listener, error) {
-				var err error
-				var listener net.Listener
-
-				if port%1000 == restfulTlsPort {
-					// load cert
-					cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-					if err != nil {
-						restlog.Error("load keys fail", err)
-						return nil, err
-					}
-
-					tlsConfig := &tls.Config{
-						Certificates: []tls.Certificate{cert},
-					}
-
-					restlog.Infof("TLS listen port is %d", port)
-					listener, err = tls.Listen("tcp", fmt.Sprint(":", port), tlsConfig)
-					if err != nil {
-						restlog.Error(err)
-						return nil, err
-					}
-
-				} else {
-					listener, err = net.Listen("tcp", fmt.Sprint(":", port))
-
-				}
-
-				return listener, err
-			},
-		})
+		s = restful.NewServer(&restful.Config{ServePort: port})
 
 		restartServer = func(params util.Params) (interface{}, error) {
 			if err := s.Stop(); err != nil {
@@ -349,11 +306,7 @@ func startHttpRESTful(port uint16, certFile, keyFile string, service *sv.HttpSer
 
 	s.RegisterPostAction(ApiSendRawTransaction, sendRawTransaction)
 
-	go func() {
-		if err := s.Start(); err != nil {
-			restlog.Errorf("Start HttpRESTful server failed, %s", err.Error())
-		}
-	}()
+	return s
 }
 
 func printSyncState(db *blockchain.ChainStore, server server.Server) {

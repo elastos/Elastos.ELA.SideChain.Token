@@ -11,28 +11,25 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
 	"github.com/elastos/Elastos.ELA.SideChain/pow"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
+
 	. "github.com/elastos/Elastos.ELA.Utility/common"
 	"github.com/elastos/Elastos.ELA/core"
 )
 
 type FeeHelper struct {
 	*mempool.FeeHelper
-
-	exchangeRate float64
-	getReference GetReference
-
-	systemAssetId Uint256
+	chainParams *config.Params
+	chainStore  *blockchain.ChainStore
 }
 
-func NewTokenFeeHelper(cfg *Config) *FeeHelper {
+func NewFeeHelper(cfg *Config) *FeeHelper {
 	return &FeeHelper{
 		FeeHelper: mempool.NewFeeHelper(&mempool.Config{
-			ExchangeRage: cfg.ExchangeRage,
-			ChainStore:   cfg.ChainStore,
+			ChainParams: cfg.ChainParams,
+			ChainStore:  cfg.ChainStore,
 		}),
-		getReference:  cfg.ChainStore.GetTxReference,
-		exchangeRate:  cfg.ExchangeRage,
-		systemAssetId: cfg.AssetId,
+		chainParams: cfg.ChainParams,
+		chainStore:  cfg.ChainStore,
 	}
 }
 
@@ -69,10 +66,10 @@ func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, er
 
 					amount, ok := feeMap[v.AssetID]
 					if ok {
-						amount.Add(amount, big.NewInt(int64(float64(mcAmount)*config.Parameters.ExchangeRate)))
+						amount.Add(amount, big.NewInt(int64(float64(mcAmount)*t.chainParams.ExchangeRate)))
 						feeMap[v.AssetID] = amount.Sub(amount, big.NewInt(int64(v.Value)))
 					} else {
-						value := big.NewInt(int64(float64(mcAmount) * config.Parameters.ExchangeRate))
+						value := big.NewInt(int64(float64(mcAmount) * t.chainParams.ExchangeRate))
 						feeMap[v.AssetID] = value.Sub(value, big.NewInt(int64(v.Value)))
 					}
 				}
@@ -82,7 +79,7 @@ func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, er
 		return feeMap, nil
 	}
 
-	reference, err := t.getReference(tx)
+	reference, err := t.chainStore.GetTxReference(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +88,7 @@ func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, er
 	var outputs = make(map[Uint256]big.Int)
 	for _, v := range reference {
 		value := big.Int{}
-		if v.AssetID.IsEqual(t.systemAssetId) {
+		if v.AssetID.IsEqual(t.chainParams.ElaAssetId) {
 			value = *big.NewInt(int64(v.Value))
 		} else {
 			value = v.TokenValue
@@ -107,7 +104,7 @@ func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, er
 
 	for _, v := range tx.Outputs {
 		value := big.Int{}
-		if v.AssetID.IsEqual(t.systemAssetId) {
+		if v.AssetID.IsEqual(t.chainParams.ElaAssetId) {
 			value = *big.NewInt(int64(v.Value))
 		} else {
 			value = v.TokenValue
@@ -163,10 +160,10 @@ func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.B
 
 	for _, tx := range txsByFeeDesc {
 		totalTxsSize = totalTxsSize + tx.GetSize()
-		if totalTxsSize > cfg.MaxBlockSize {
+		if totalTxsSize > types.MaxBlockSize {
 			break
 		}
-		if txCount >= cfg.MaxTxPerBlock {
+		if txCount >= types.MaxTxPerBlock {
 			break
 		}
 
@@ -174,7 +171,7 @@ func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.B
 			continue
 		}
 
-		fee := t.GetTxFee(tx, cfg.Chain.AssetID)
+		fee := t.GetTxFee(tx, t.chainParams.ElaAssetId)
 		if fee.Cmp(big.NewInt(int64(tx.Fee))) != 0 {
 			continue
 		}

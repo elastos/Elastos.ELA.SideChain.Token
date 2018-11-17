@@ -1,4 +1,4 @@
-# Elastos.ELA.SideChain.ID
+# Elastos.ELA.SideChain.Token
 
 ## Summary
 

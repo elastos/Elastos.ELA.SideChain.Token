@@ -21,26 +21,21 @@ const (
 
 type validator struct {
 	*mempool.Validator
-
-	systemAssetID common.Uint256
-	foundation    common.Uint168
-	spvService    *spv.Service
-	db            *blockchain.ChainStore
+	chainParams *config.Params
+	spvService  *spv.Service
+	db          *blockchain.ChainStore
 }
 
 func NewValidator(cfg *Config) *mempool.Validator {
 	var val validator
 	val.Validator = mempool.NewValidator(&mempool.Config{
-		FoundationAddress: cfg.FoundationAddress,
-		AssetId:           cfg.AssetId,
-		ExchangeRage:      cfg.ExchangeRage,
-		ChainStore:        cfg.ChainStore,
-		SpvService:        cfg.SpvService,
-		Validator:         cfg.Validator,
-		FeeHelper:         nil,
+		ChainParams: cfg.ChainParams,
+		ChainStore:  cfg.ChainStore,
+		SpvService:  cfg.SpvService,
+		Validator:   cfg.Validator,
+		FeeHelper:   nil,
 	})
-	val.systemAssetID = cfg.AssetId
-	val.foundation = cfg.FoundationAddress
+	val.chainParams = cfg.ChainParams
 	val.spvService = cfg.SpvService
 	val.db = cfg.ChainStore
 
@@ -63,7 +58,7 @@ func (v *validator) checkTransactionOutputImpl(txn *types.Transaction) error {
 		var foundationReward = common.Fixed64(0)
 		for _, output := range txn.Outputs {
 			totalReward += output.Value
-			if output.ProgramHash.IsEqual(v.foundation) {
+			if output.ProgramHash.IsEqual(v.chainParams.Foundation) {
 				foundationReward += output.Value
 			}
 		}
@@ -82,7 +77,7 @@ func (v *validator) checkTransactionOutputImpl(txn *types.Transaction) error {
 	for _, output := range txn.Outputs {
 		if output.AssetID == common.EmptyHash {
 			return errors.New("asset id is nil")
-		} else if output.AssetID == v.systemAssetID {
+		} else if output.AssetID == v.chainParams.ElaAssetId {
 			if output.Value < 0 || output.TokenValue.Sign() != 0 {
 				return errors.New("invalid transaction output with ela asset id")
 			}
@@ -126,7 +121,7 @@ func (v *validator) checkReferencedOutputImpl(txn *types.Transaction) error {
 			return mempool.RuleError{ErrorCode: mempool.ErrUnknownReferedTx, Description: desc}
 		}
 		referTxnOut := referTxn.Outputs[referTxnOutIndex]
-		if referTxnOut.AssetID.IsEqual(v.systemAssetID) {
+		if referTxnOut.AssetID.IsEqual(v.chainParams.ElaAssetId) {
 			if referTxnOut.Value <= 0 {
 				desc := "Value of referenced transaction output is invalid"
 				return mempool.RuleError{ErrorCode: mempool.ErrInvalidReferedTx, Description: desc}
@@ -141,7 +136,7 @@ func (v *validator) checkReferencedOutputImpl(txn *types.Transaction) error {
 		if referTxn.IsCoinBaseTx() {
 			lockHeight := referTxn.LockTime
 			currentHeight := v.db.GetHeight()
-			if currentHeight-lockHeight < config.Parameters.ChainParam.SpendCoinbaseSpan {
+			if currentHeight-lockHeight < v.chainParams.CoinbaseMaturity {
 				desc := fmt.Sprintf("output is locked till %d, current %d", lockHeight, currentHeight)
 				return mempool.RuleError{ErrorCode: mempool.ErrIneffectiveCoinbase, Description: desc}
 			}
@@ -252,7 +247,7 @@ func (v *validator) checkAssetPrecisionImpl(txn *types.Transaction) error {
 		}
 		precision := asset.Precision
 		for _, output := range outputs {
-			if output.AssetID.IsEqual(v.systemAssetID) {
+			if output.AssetID.IsEqual(v.chainParams.ElaAssetId) {
 				if !checkAmountPrecise(output.Value, precision, 8) {
 					return errors.New("Invalide ela asset value,out of precise.")
 					desc := fmt.Sprint("[checkAssetPrecision] The precision of asset is incorrect.")
@@ -277,7 +272,7 @@ func (v *validator) checkTransactionPayloadImpl(txn *types.Transaction) error {
 			return errors.New("Invalide asset Precision.")
 		}
 		hash := txn.Hash()
-		if hash.IsEqual(v.systemAssetID) {
+		if hash.IsEqual(v.chainParams.ElaAssetId) {
 			if !checkAmountPrecise(pld.Amount, pld.Asset.Precision, 8) {
 				return errors.New("Invalide ela asset value,out of precise.")
 			}
@@ -306,14 +301,14 @@ func (v *validator) checkTransactionBalanceImpl(txn *types.Transaction) error {
 	}
 
 	for _, output := range references {
-		if output.AssetID.IsEqual(v.systemAssetID) {
+		if output.AssetID.IsEqual(v.chainParams.ElaAssetId) {
 			elaInputAmount += output.Value
 		} else {
 			tokenInputAmount.Add(tokenInputAmount, &(output.TokenValue))
 		}
 	}
 	for _, output := range txn.Outputs {
-		if output.AssetID.IsEqual(v.systemAssetID) {
+		if output.AssetID.IsEqual(v.chainParams.ElaAssetId) {
 			elaOutputAmount += output.Value
 		} else {
 			tokenOutputAmount.Add(tokenOutputAmount, &(output.TokenValue))
@@ -322,7 +317,7 @@ func (v *validator) checkTransactionBalanceImpl(txn *types.Transaction) error {
 
 	elaBalance := elaInputAmount - elaOutputAmount
 	if txn.IsTransferCrossChainAssetTx() || txn.IsRechargeToSideChainTx() {
-		if int(elaBalance) < config.Parameters.MinCrossChainTxFee {
+		if int64(elaBalance) < v.chainParams.MinCrossChainTxFee {
 			return errors.New("crosschain transaction fee is not enough")
 		}
 	} else if txn.IsRegisterAssetTx() {
@@ -330,7 +325,7 @@ func (v *validator) checkTransactionBalanceImpl(txn *types.Transaction) error {
 			return errors.New("register asset transaction fee is not enough")
 		}
 	} else {
-		if int(elaBalance) < config.Parameters.PowConfiguration.MinTxFee {
+		if int64(elaBalance) < v.chainParams.MinTransactionFee {
 			return errors.New("transaction fee is not enough")
 		}
 	}

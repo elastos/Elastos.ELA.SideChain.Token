@@ -5,13 +5,13 @@ import (
 	"os"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
-	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
 	"github.com/elastos/Elastos.ELA.SideChain/netsync"
 	"github.com/elastos/Elastos.ELA.SideChain/peer"
 	"github.com/elastos/Elastos.ELA.SideChain/pow"
 	"github.com/elastos/Elastos.ELA.SideChain/server"
 	"github.com/elastos/Elastos.ELA.SideChain/service"
+	"github.com/elastos/Elastos.ELA.SideChain/spv"
 
 	"github.com/elastos/Elastos.ELA.Utility/elalog"
 	"github.com/elastos/Elastos.ELA.Utility/http/jsonrpc"
@@ -21,33 +21,31 @@ import (
 )
 
 const (
-	logsPath = "./logs/"
-
 	defaultMaxPerLogFileSize int64 = elalog.MBSize * 20
 	defaultMaxLogsFolderSize int64 = elalog.GBSize * 2
 )
 
 // configFileWriter returns the configured parameters for log file writer.
-func configFileWriter(params *config.Configuration) (string, int64, int64) {
+func configFileWriter() (string, int64, int64) {
 	maxPerLogFileSize := defaultMaxPerLogFileSize
 	maxLogsFolderSize := defaultMaxLogsFolderSize
-	if params.MaxPerLogSize > 0 {
-		maxPerLogFileSize = int64(params.MaxPerLogSize) * elalog.MBSize
+	if cfg.MaxPerLogFileSize > 0 {
+		maxPerLogFileSize = cfg.MaxPerLogFileSize * elalog.MBSize
 	}
-	if params.MaxLogsSize > 0 {
-		maxLogsFolderSize = int64(params.MaxLogsSize) * elalog.MBSize
+	if cfg.MaxLogsFolderSize > 0 {
+		maxLogsFolderSize = cfg.MaxLogsFolderSize * elalog.MBSize
 	}
-	return logsPath, maxPerLogFileSize, maxLogsFolderSize
+	return defaultLogDir, maxPerLogFileSize, maxLogsFolderSize
 }
 
 // log is a logger that is initialized with no output filters.  This
 // means the package will not perform any logging by default until the caller
 // requests it.
 var (
-	fileWriter = elalog.NewFileWriter(configFileWriter(config.Parameters.Configuration))
+	fileWriter = elalog.NewFileWriter(configFileWriter())
 	logWriter  = io.MultiWriter(os.Stdout, fileWriter)
 	backend    = elalog.NewBackend(logWriter, elalog.Llongfile)
-	level      = elalog.Level(config.Parameters.PrintLevel)
+	level, _ = elalog.LevelFromString(cfg.LogLevel)
 
 	admrlog = backend.Logger("ADMR", elalog.LevelOff)
 	cmgrlog = backend.Logger("CMGR", elalog.LevelOff)
@@ -57,7 +55,7 @@ var (
 	peerlog = backend.Logger("PEER", level)
 	minrlog = backend.Logger("MINR", level)
 	spvslog = backend.Logger("SPVS", level)
-	srvrlog = backend.Logger("SRVR", elalog.LevelInfo)
+	srvrlog = backend.Logger("SRVR", level)
 	httplog = backend.Logger("HTTP", level)
 	rpcslog = backend.Logger("RPCS", level)
 	restlog = backend.Logger("REST", level)
@@ -74,6 +72,7 @@ func init() {
 	peer.UseLogger(peerlog)
 	server.UseLogger(srvrlog)
 	pow.UseLogger(minrlog)
+	spv.UseLogger(spvslog)
 	service.UseLogger(httplog)
 	jsonrpc.UseLogger(rpcslog)
 	restful.UseLogger(restlog)
