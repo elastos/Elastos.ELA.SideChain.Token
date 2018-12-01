@@ -1,22 +1,25 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
 
 	"github.com/elastos/Elastos.ELA.SideChain.Token/params"
 
 	"github.com/elastos/Elastos.ELA.Utility/common"
 	"github.com/elastos/Elastos.ELA.Utility/elalog"
-	"github.com/go-ini/ini"
 )
 
 const (
-	configFilename        = "./token.conf"
+	ConfigFilename        = "./config.json"
 	defaultLogLevel       = "info"
 	defaultLogsFolderSize = 2 * elalog.GBSize  // 2 GB
 	defaultMaxLogFileSize = 20 * elalog.MBSize // 20 MB
 	defaultLogDir         = "./logs/"
-	defaultDataDir        = "./"
 )
 
 var (
@@ -24,149 +27,156 @@ var (
 	activeNetParams = &params.MainNetParams
 
 	// Load configuration from file.
-	cfg, loadConfigErr = loadConfig()
+	cfg, loadConfigErr = loadNewConfig()
 )
 
-type appconfig struct {
-	TestNet            bool     `ini:"testnet" comment:"Use the test network"`
-	RegTest            bool     `ini:"regtest" comment:"Use the regression test network"`
-	Magic              uint32   `ini:"magic" comment:"Magic number of the peer-to-peer network"`
-	DefaultPort        uint16   `ini:"port" comment:"The default port for the peer-to-peer network"`
-	SeedPeers          []string `ini:"seedpeer,omitempty,allowshadow" comment:"Add a seed peer to connect with at startup"`
-	Listeners          []string `ini:"listen,omitempty,allowshadow" comment:"Add an interface/port to listen for connections (default all interfaces port: 20608, testnet: 21608)"`
-	DisableTxFilters   bool     `ini:"notxfilter" comment:"Disable transaction filtering support"`
-	Foundation         string   `ini:"foundation" comment:"The specified payment of foundation address to use for receive mine and fee rewards"`
-	MinTxFee           int64    `ini:"mintxfee" comment:"The minimum transaction fee in ELA/kB to be considered a non-zero fee"`
-	MinCrossChainTxFee int64    `ini:"mincrosschaintxfee" comment:"The minimum cross chain transaction fee in ELA/kB to be considered a non-zero fee"`
-	ExchangeRate       float64  `ini:"exchangeragte" comment:"The exchange rate between side chain and main chain in ELA(side)/ELA(main)"`
-	HttpRestPort       uint16   `ini:"restport" comment:"Specify the interface/port to listen on to provide RESTful service (default interfaces port: 30604)"`
-	HttpJsonPort       uint16   `ini:"jsonport" comment:"Specify the interface/port to listen on to provide JSON-RPC service (default interfaces port: 30606)"`
-	Mining             bool     `ini:"mine" comment:"Generate (mine) ELA coins using the CPU"`
-	MinerInfo          string   `ini:"minerinfo" comment:"The miner information to be used when creating a block"`
-	MinerAddr          string   `ini:"mineraddr" comment:"The specified payment address to use for mining blocks"`
-	LogLevel           string   `ini:"loglevel" comment:"Logging level for all subsystems {debug, info, warn, error, fatal}"`
-	MaxLogsFolderSize  int64    `ini:"logsfolderlimit" comment:"Maximum total size(MB) of log files can be reserved in logs folder (default 2GB)"`
-	MaxPerLogFileSize  int64    `ini:"logfilelimit" comment:"Maximum size of each log file in MB (default 20MB)"`
-	MonitorState       bool     `ini:"monitorstate" comment:"Print logs in 10 second interval to monitor node connections and sync status"`
-	dataDir            string
+type config struct {
+	NetType       string
+	Configuration struct {
+		Magic                      uint32
+		SpvMagic                   uint32
+		SeedList                   *[]string
+		SpvSeedList                *[]string
+		ExchangeRate               float64
+		MinCrossChainTxFee         int64
+		HttpRestPort               uint16
+		HttpJsonPort               uint16
+		NodePort                   uint16
+		PrintLevel                 elalog.Level
+		MaxLogsSize                int64
+		MaxPerLogSize              int64
+		FoundationAddress          string
+		DisableTxFilters           bool
+		MainChainFoundationAddress string
+		PowConfiguration           struct {
+			PayToAddr    string
+			AutoMining   bool
+			MinerInfo    string
+			MinTxFee     int64
+			InstantBlock bool
+		}
+	}
 }
 
-type spvconfig struct {
-	TestNet     bool     `ini:"testnet" comment:"Use the test network"`
-	RegTest     bool     `ini:"regtest" comment:"Use the regression test network"`
-	Magic       uint32   `ini:"magic" comment:"Magic number of the peer-to-peer network"`
-	SeedPeers   []string `ini:"seedpeer,omitempty,allowshadow" comment:"Add a seed peer to connect with at startup"`
-	DefaultPort uint16   `ini:"port" comment:"The port to connect with when connect to a peer"`
-	Foundation  string   `ini:"foundation" comment:"The specified payment of foundation address to use for receive mine and fee rewards"`
+type appConfig struct {
+	HttpRestPort      uint16
+	HttpJsonPort      uint16
+	Mining            bool
+	MinerInfo         string
+	MinerAddr         string
+	LogLevel          string
+	MaxLogsFolderSize int64
+	MaxPerLogFileSize int64
+	MonitorState      bool
 }
 
-func loadConfig() (*appconfig, error) {
-	appCfg := appconfig{
+func loadNewConfig() (*appConfig, error) {
+	appCfg := appConfig{
 		LogLevel:          defaultLogLevel,
 		MaxLogsFolderSize: defaultLogsFolderSize,
 		MaxPerLogFileSize: defaultMaxLogFileSize,
-		HttpRestPort:      30604,
-		HttpJsonPort:      30606,
-		dataDir:           defaultDataDir,
+		HttpRestPort:      20604,
+		HttpJsonPort:      20606,
+		MinerAddr:         "8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta",
+		MonitorState:      true,
 	}
-	spvCfg := spvconfig{}
 
-	if !loadOldConfig(&appCfg, &spvCfg) {
-		// Load configuration from file.
-		file, err := ini.ShadowLoad(configFilename)
-		if err != nil {
+	data, err := ioutil.ReadFile(ConfigFilename)
+	if err != nil {
+		if _, ok := err.(*os.PathError); ok {
+			fmt.Println("WARNING: can't find config.json. Use default configurations in codes")
+			// if we can't find config.json, use default main net config.
 			return &appCfg, nil
-		}
-
-		// Map basic options in Application section
-		err = file.Section("Application").MapTo(&appCfg)
-		if err != nil {
-			return &appCfg, err
-		}
-		// Map SPV options in SPV Options section
-		err = file.Section("SPV Options").MapTo(&spvCfg)
-		if err != nil {
-			return &appCfg, err
+		} else {
+			return nil, errors.New("read config file error:" + err.Error())
 		}
 	}
 
-	// Multiple networks can't be selected simultaneously.
-	numNets := 0
-	// Count number of network flags passed; assign active network params
-	// while we're at it
-	if appCfg.TestNet {
-		numNets++
-		appCfg.dataDir = "./data_test"
+	// Map Application Options.
+	cfg := new(config)
+	err = json.Unmarshal(data, cfg)
+	if err != nil {
+		return nil, errors.New("config file json unmarshal error:" + err.Error())
+	}
+	if cfg.NetType == "" || cfg.NetType == "MainNet" {
+		//do nothing. default is main net
+	} else if cfg.NetType == "TestNet" {
 		activeNetParams = &params.TestNetParams
-	}
-	if appCfg.RegTest {
-		numNets++
-		appCfg.dataDir = "./data_regt"
-		activeNetParams = &params.RegNetParams
-	}
-	if numNets > 1 {
-		return &appCfg, errors.New("[Application] The testnet and regtest" +
-			" params can't be used together -- choose one of the two")
+		appCfg.HttpJsonPort = 21606
+		appCfg.HttpRestPort = 21604
+		appCfg.MinerAddr = "8ZNizBf4KhhPjeJRGpox6rPcHE5Np6tFx3"
+	} else {
+		return nil, errors.New("invalid NetType: should be MainNet, TestNet")
 	}
 
-	if appCfg.Magic > 0 {
-		activeNetParams.Magic = appCfg.Magic
-	}
-	if len(appCfg.SeedPeers) > 0 {
-		activeNetParams.SeedList = appCfg.SeedPeers
-	}
-	if appCfg.DefaultPort > 0 {
-		activeNetParams.DefaultPort = appCfg.DefaultPort
-	}
+	config := cfg.Configuration
+	powCfg := cfg.Configuration.PowConfiguration
 
-	if len(appCfg.Foundation) > 0 {
-		foundation, err := common.Uint168FromAddress(appCfg.Foundation)
+	appCfg.HttpRestPort = config.HttpRestPort
+	appCfg.HttpJsonPort = config.HttpJsonPort
+	appCfg.Mining = powCfg.AutoMining
+	appCfg.MinerInfo = powCfg.MinerInfo
+	appCfg.MinerAddr = powCfg.PayToAddr
+
+	appCfg.LogLevel = elalog.Level(config.PrintLevel).String()
+
+	appCfg.MaxLogsFolderSize = config.MaxLogsSize
+	appCfg.MaxPerLogFileSize = config.MaxPerLogSize
+	appCfg.MonitorState = true
+
+	if config.Magic > 0 {
+		activeNetParams.Magic = config.Magic
+	}
+	if config.SeedList != nil {
+		activeNetParams.SeedList = *config.SeedList
+	}
+	if config.NodePort > 0 {
+		activeNetParams.DefaultPort = config.NodePort
+	}
+	if len(config.FoundationAddress) > 0 {
+		foundation, err := common.Uint168FromAddress(config.FoundationAddress)
 		if err == nil {
 			activeNetParams.Foundation = *foundation
 		}
 	}
-	if appCfg.MinTxFee > 0 {
-		activeNetParams.MinTransactionFee = appCfg.MinTxFee
+	if powCfg.MinTxFee > 0 {
+		activeNetParams.MinTransactionFee = powCfg.MinTxFee
 	}
-	if appCfg.ExchangeRate > 0 {
-		activeNetParams.ExchangeRate = appCfg.ExchangeRate
+	if config.ExchangeRate > 0 {
+		activeNetParams.ExchangeRate = config.ExchangeRate
 	}
-	if appCfg.DisableTxFilters {
+	if config.DisableTxFilters {
 		activeNetParams.DisableTxFilters = true
 	}
-	if appCfg.MinCrossChainTxFee > 0 {
-		activeNetParams.MinCrossChainTxFee = appCfg.MinCrossChainTxFee
+	if config.MinCrossChainTxFee > 0 {
+		activeNetParams.MinCrossChainTxFee = config.MinCrossChainTxFee
+	}
+	if config.SpvMagic > 0 {
+		activeNetParams.SpvParams.Magic = config.SpvMagic
+	}
+	if config.SpvSeedList != nil {
+		activeNetParams.SpvParams.SeedList = *config.SpvSeedList
+	}
+	if len(config.MainChainFoundationAddress) > 0 {
+		activeNetParams.SpvParams.Foundation = config.MainChainFoundationAddress
 	}
 
-	// Multiple networks can't be selected simultaneously.
-	numNets = 0
-	// Count number of network flags passed; assign active network params
-	// while we're at it
-	if appCfg.TestNet {
-		numNets++
-		activeNetParams.SpvParams = params.TestNetSpvParams
-	}
-	if appCfg.RegTest {
-		numNets++
-		activeNetParams.SpvParams = params.RegNetSpvParams
-	}
-	if numNets > 1 {
-		return &appCfg, errors.New("[SPV Options] The testnet and regtest" +
-			" params can't be used together -- choose one of the two")
+	if powCfg.InstantBlock {
+		// generate block instantly
+		activeNetParams.PowLimitBits = 0x207fffff
+		activeNetParams.TargetTimespan = 1 * time.Second * 10
+		activeNetParams.TargetTimePerBlock = 1 * time.Second
+	} else {
+		activeNetParams.PowLimitBits = 0x1f0008ff
+		activeNetParams.TargetTimespan = 24 * time.Hour
+		activeNetParams.TargetTimePerBlock = 2 * time.Minute
 	}
 
-	if spvCfg.Magic > 0 {
-		activeNetParams.SpvParams.Magic = spvCfg.Magic
-	}
-	if spvCfg.DefaultPort > 0 {
-		activeNetParams.SpvParams.DefaultPort = spvCfg.DefaultPort
-	}
-	if len(spvCfg.SeedPeers) > 0 {
-		activeNetParams.SpvParams.SeedList = spvCfg.SeedPeers
-	}
-	if len(spvCfg.Foundation) > 0 {
-		activeNetParams.SpvParams.Foundation = spvCfg.Foundation
-	}
-
+	activeNetParams.ElaAssetId = params.ElaAssetId
+	activeNetParams.AdjustmentFactor = 4
+	activeNetParams.CoinbaseMaturity = 100
+	activeNetParams.MinTransactionFee = 100
+	activeNetParams.ExchangeRate = 1
+	activeNetParams.MinCrossChainTxFee = 10000
 	return &appCfg, nil
 }
