@@ -109,8 +109,8 @@ func (u *utxo) Deserialize(r io.Reader) error {
 	return nil
 }
 
-func NewChainStore(dataDir string, genesisBlock *types.Block, assetID Uint256) (*TokenChainStore, error) {
-	chainStore, err := blockchain.NewChainStore(dataDir, genesisBlock)
+func NewChainStore(genesisBlock *types.Block, assetID Uint256) (*TokenChainStore, error) {
+	chainStore, err := blockchain.NewChainStore("./", genesisBlock)
 	if err != nil {
 		return nil, err
 	}

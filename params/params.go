@@ -1,12 +1,11 @@
 package params
 
 import (
+	"github.com/elastos/Elastos.ELA.Utility/common"
 	"math/big"
 	"time"
 
 	"github.com/elastos/Elastos.ELA.SideChain/config"
-
-	"github.com/elastos/Elastos.ELA.Utility/common"
 )
 
 // These variables are the chain proof-of-work limit parameters for each default
@@ -74,24 +73,23 @@ var TestNetSpvParams = config.SpvParams{
 	DefaultPort: 21866,
 }
 
-// RegNetSpvParams defines the network parameters for the regression network SPV.
-var RegNetSpvParams = config.SpvParams{
-	Foundation: "8ZNizBf4KhhPjeJRGpox6rPcHE5Np6tFx3",
-}
-
 // MainNetParams defines the network parameters for the main network.
 var MainNetParams = config.Params{
-	Name:  "mainnet",
-	Magic: 2018001,
-	//DefaultPort: 20608, TODO fill this with when production environment ready
+	Name:        "mainnet",
+	Magic:       2018001,
+	DefaultPort: 20608,
 
 	SeedList: []string{
-	// TODO fill this with when production environment ready
+		"did-mainnet-001.elastos.org",
+		"did-mainnet-002.elastos.org",
+		"did-mainnet-003.elastos.org",
+		"did-mainnet-004.elastos.org",
+		"did-mainnet-005.elastos.org",
 	},
 
 	Foundation:         mainNetFoundation,
-	ElaAssetId:         elaAssetId,
-	GenesisBlock:       genesisBlock,
+	ElaAssetId:         ElaAssetId,
+	GenesisBlock:       GenesisBlock,
 	PowLimit:           powLimit,
 	PowLimitBits:       0x1f0008ff,
 	TargetTimespan:     24 * time.Hour,  // 24 hours
@@ -107,46 +105,19 @@ var MainNetParams = config.Params{
 
 // TestNetParams defines the network parameters for the test network.
 var TestNetParams = config.Params{
-	Name:  "testnet",
-	Magic: 20180011,
-	//DefaultPort: 21608, TODO fill this with when production environment ready
+	Name:        "testnet",
+	Magic:       20180011,
+	DefaultPort: 21608,
 
 	SeedList: []string{
-	// TODO fill this with when production environment ready
+		"did-testnet-001.elastos.org",
+		"did-testnet-002.elastos.org",
+		"did-testnet-003.elastos.org",
+		"did-testnet-004.elastos.org",
+		"did-testnet-005.elastos.org",
 	},
 
-	Foundation:         testNetFoundation,
-	ElaAssetId:         elaAssetId,
-	GenesisBlock:       genesisBlock,
-	PowLimit:           powLimit,
-	PowLimitBits:       0x1e1da5ff,
-	TargetTimespan:     10 * time.Second * 10, // 100 second
-	TargetTimePerBlock: 10 * time.Second,      // 10 second
-	AdjustmentFactor:   4,                     // 25% less, 400% more
-	CoinbaseMaturity:   100,
-	MinTransactionFee:  100,
-	ExchangeRate:       1,
-	MinCrossChainTxFee: 10000,
+	Foundation: testNetFoundation,
 
 	SpvParams: TestNetSpvParams,
-}
-
-// RegNetParams defines the network parameters for the regression test network.
-var RegNetParams = config.Params{
-	Name: "regnet",
-
-	Foundation:         testNetFoundation,
-	ElaAssetId:         elaAssetId,
-	GenesisBlock:       genesisBlock,
-	PowLimit:           powLimit,
-	PowLimitBits:       0x207fffff,
-	TargetTimespan:     1 * time.Second * 10, // 10 second
-	TargetTimePerBlock: 1 * time.Second,      // 1 second
-	AdjustmentFactor:   4,                    // 25% less, 400% more
-	CoinbaseMaturity:   100,
-	MinTransactionFee:  100,
-	ExchangeRate:       1,
-	MinCrossChainTxFee: 10000,
-
-	SpvParams: RegNetSpvParams,
 }
