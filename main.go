@@ -64,8 +64,7 @@ func main() {
 	interrupt := signal.NewInterrupt()
 
 	eladlog.Info("1. BlockChain init")
-	chainStore, err := bc.NewChainStore(cfg.dataDir,
-		activeNetParams.GenesisBlock, activeNetParams.ElaAssetId)
+	chainStore, err := bc.NewChainStore(activeNetParams.GenesisBlock, activeNetParams.ElaAssetId)
 	if err != nil {
 		eladlog.Fatalf("open chain store failed, %s", err)
 		os.Exit(1)
@@ -100,7 +99,7 @@ func main() {
 	}
 
 	spvCfg := spv.Config{
-		DataDir:        filepath.Join(cfg.dataDir, "data_spv"),
+		DataDir:        filepath.Join("./", "data_spv"),
 		Magic:          activeNetParams.SpvParams.Magic,
 		DefaultPort:    activeNetParams.SpvParams.DefaultPort,
 		SeedList:       activeNetParams.SpvParams.SeedList,
@@ -176,6 +175,7 @@ func main() {
 		Chain:              chain,
 		TxMemPool:          txPool,
 		PowService:         powService,
+		SetLogLevel:        setLogLevel,
 		GetBlockInfo:       service.GetBlockInfo,
 		GetTransactionInfo: sv.GetTransactionInfo,
 		GetTransaction:     service.GetTransaction,
