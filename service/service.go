@@ -172,7 +172,7 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}
 		}
 	}
 	valueList := make(map[string]string)
-	valueList[types.GetSystemAssetId().String()] = elaValue.String()
+	valueList[BytesToHexString(BytesReverse(types.GetSystemAssetId().Bytes()))] = elaValue.String()
 	for k, v := range tokenValueList {
 		reverse, _ := Uint256FromBytes(BytesReverse(k.Bytes()))
 		totalValue, _ := new(big.Int).SetString(v.String(), 10)
