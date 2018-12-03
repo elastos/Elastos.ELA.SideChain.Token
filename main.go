@@ -16,6 +16,7 @@ import (
 	mp "github.com/elastos/Elastos.ELA.SideChain.Token/mempool"
 	sv "github.com/elastos/Elastos.ELA.SideChain.Token/service"
 
+	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
 	"github.com/elastos/Elastos.ELA.SideChain/pow"
@@ -43,6 +44,7 @@ var (
 )
 
 func main() {
+	core.Init()
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
