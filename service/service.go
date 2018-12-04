@@ -85,13 +85,7 @@ func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Tra
 			outputs[i].Value = new(big.Int).Div(&v.TokenValue, big.NewInt(int64(math.Pow10(18)))).String()
 		}
 		outputs[i].Index = uint32(i)
-		var address string
-		destroyHash := Uint168{}
-		if v.ProgramHash == destroyHash {
-			address = service.DestroyAddress
-		} else {
-			address, _ = v.ProgramHash.ToAddress()
-		}
+		address, _ := v.ProgramHash.ToAddress()
 		outputs[i].Address = address
 		outputs[i].AssetID = service.ToReversedString(v.AssetID)
 		outputs[i].OutputLock = v.OutputLock
@@ -288,7 +282,7 @@ func (s *HttpServiceExtend) GetUnspendsByAddr(param util.Params) (interface{}, e
 			unspendsInfo = append(unspendsInfo, UTXOUnspentInfo{
 				Value: v.ValueString(),
 				TxID:  BytesToHexString(BytesReverse(v.TxID[:])),
-				Index: v.Index,})
+				Index: v.Index})
 		}
 		results = append(results, struct {
 			AssetId   string
