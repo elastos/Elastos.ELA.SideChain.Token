@@ -19,6 +19,14 @@ type HttpServiceExtend struct {
 	chain *blockchain.TokenChainStore
 }
 
+type AssetInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Precision   byte   `json:"precision"`
+	Height      uint32 `json:"height"`
+	ID          string `json:"assetid"`
+}
+
 func NewHttpService(cfg *service.Config, store *blockchain.TokenChainStore) *HttpServiceExtend {
 	server := &HttpServiceExtend{
 		HttpService: service.NewHttpService(cfg),
@@ -352,22 +360,17 @@ func (s *HttpServiceExtend) GetAssetByHash(param util.Params) (interface{}, erro
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
-	if false {
-		w := new(bytes.Buffer)
-		asset.Serialize(w)
-		return BytesToHexString(w.Bytes()), nil
+	var assetID Uint256
+	if asset.Name == "ELA" {
+		assetID = types.GetSystemAssetId()
+	} else {
+		assetID = asset.Hash()
 	}
-	return asset, nil
+
+	return AssetInfo{asset.Name, asset.Description, asset.Precision, asset.Height, BytesToHexString(BytesReverse(assetID[:]))}, nil
 }
 
 func (s *HttpServiceExtend) GetAssetList(param util.Params) (interface{}, error) {
-	type AssetInfo struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Precision   byte   `json:"precision"`
-		Height      uint32 `json:"height"`
-		ID          string `json:"assetid"`
-	}
 	var assetArray []AssetInfo
 	assets := s.chain.GetAssets()
 	for assetID, asset := range assets {
