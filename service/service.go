@@ -149,7 +149,7 @@ func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Tra
 func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}, error) {
 	tokenValueList := make(map[Uint256]*big.Int)
 	var elaValue Fixed64
-	str, ok := param.String("addr")
+	str, ok := param.String("address")
 	if !ok {
 		return nil, fmt.Errorf(service.InvalidParams.String())
 	}
