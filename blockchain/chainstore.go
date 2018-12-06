@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"math/big"
 
 	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
@@ -63,8 +62,11 @@ func (u *utxo) ValueString() string {
 		number, _ := Fixed64FromBytes(u.Value)
 		return number.String()
 	} else {
-		tokenValue := new(big.Int).SetBytes(u.Value)
-		return tokenValue.Div(tokenValue, big.NewInt(int64(math.Pow10(18)))).String()
+		total := new(big.Int).SetBytes(u.Value).String()
+		numberLength := len(total)
+		fractionalPart := total[numberLength-18 : numberLength]
+		integerPart := total[:numberLength-18]
+		return integerPart + "." + fractionalPart
 	}
 }
 
