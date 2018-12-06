@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	printStateInterval = 10 * time.Second
+	printStateInterval = 5 * time.Second
 )
 
 var (
@@ -202,7 +202,6 @@ func main() {
 			restlog.Errorf("Start HttpRESTful server failed, %s", err.Error())
 		}
 	}()
-
 	if cfg.MonitorState {
 		go printSyncState(chainStore.ChainStore, server)
 	}
@@ -233,7 +232,7 @@ func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Serve
 	s.RegisterAction("createauxblock", service.CreateAuxBlock, "paytoaddress")
 	s.RegisterAction("togglemining", service.ToggleMining, "mining")
 	s.RegisterAction("discretemining", service.DiscreteMining, "count")
-	s.RegisterAction("getreceivedbyaddress", service.GetReceivedByAddress, "addr", "assetid")
+	s.RegisterAction("getreceivedbyaddress", service.GetReceivedByAddress, "address", "assetid")
 	s.RegisterAction("listunspent", service.ListUnspent, "addresses", "assetid")
 	s.RegisterAction("getassetbyhash", service.GetAssetByHash, "hash")
 	s.RegisterAction("getassetlist", service.GetAssetList)
@@ -320,7 +319,7 @@ func printSyncState(db *blockchain.ChainStore, server server.Server) {
 	ticker := time.NewTicker(printStateInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
+	for {
 		var buf bytes.Buffer
 		buf.WriteString("-> ")
 		buf.WriteString(strconv.FormatUint(uint64(db.GetHeight()), 10))
@@ -336,5 +335,6 @@ func printSyncState(db *blockchain.ChainStore, server server.Server) {
 		}
 		buf.WriteString("]")
 		logger.Info(buf.String())
+		<- ticker.C
 	}
 }
