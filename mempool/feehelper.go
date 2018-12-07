@@ -1,9 +1,6 @@
 package mempool
 
 import (
-	"bytes"
-	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
@@ -13,7 +10,6 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 
 	. "github.com/elastos/Elastos.ELA.Utility/common"
-	"github.com/elastos/Elastos.ELA/core"
 )
 
 type FeeHelper struct {
@@ -33,116 +29,18 @@ func NewFeeHelper(cfg *Config) *FeeHelper {
 	}
 }
 
-func (t *FeeHelper) GetTxFee(tx *types.Transaction, assetId Uint256) *big.Int {
-	feeMap, err := t.GetTxFeeMap(tx)
-	if err != nil {
-		return big.NewInt(0)
+func (t *FeeHelper) GetTxFee(tx *types.Transaction) Fixed64 {
+	var totalOutput Fixed64
+	var totalInput Fixed64
+	for _, output := range tx.Outputs {
+		totalOutput += output.Value
 	}
 
-	return feeMap[assetId]
-}
-
-func (t *FeeHelper) GetTxFeeMap(tx *types.Transaction) (map[Uint256]*big.Int, error) {
-	feeMap := make(map[Uint256]*big.Int)
-
-	if tx.IsRechargeToSideChainTx() {
-		depositPayload := tx.Payload.(*types.PayloadRechargeToSideChain)
-		mainChainTransaction := new(core.Transaction)
-		reader := bytes.NewReader(depositPayload.MainChainTransaction)
-		if err := mainChainTransaction.Deserialize(reader); err != nil {
-			return nil, errors.New("GetTxFeeMap mainChainTransaction deserialize failed")
-		}
-
-		crossChainPayload := mainChainTransaction.Payload.(*core.PayloadTransferCrossChainAsset)
-
-		for _, v := range tx.Outputs {
-			for i := 0; i < len(crossChainPayload.CrossChainAddresses); i++ {
-				targetAddress, err := v.ProgramHash.ToAddress()
-				if err != nil {
-					return nil, err
-				}
-				if targetAddress == crossChainPayload.CrossChainAddresses[i] {
-					mcAmount := mainChainTransaction.Outputs[crossChainPayload.OutputIndexes[i]].Value
-
-					amount, ok := feeMap[v.AssetID]
-					if ok {
-						amount.Add(amount, big.NewInt(int64(float64(mcAmount)*t.chainParams.ExchangeRate)))
-						feeMap[v.AssetID] = amount.Sub(amount, big.NewInt(int64(v.Value)))
-					} else {
-						value := big.NewInt(int64(float64(mcAmount) * t.chainParams.ExchangeRate))
-						feeMap[v.AssetID] = value.Sub(value, big.NewInt(int64(v.Value)))
-					}
-				}
-			}
-		}
-
-		return feeMap, nil
+	references, _ := t.chainStore.GetTxReference(tx)
+	for _, output := range references {
+		totalInput += output.Value
 	}
-
-	reference, err := t.chainStore.GetTxReference(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	var inputs = make(map[Uint256]big.Int)
-	var outputs = make(map[Uint256]big.Int)
-	for _, v := range reference {
-		value := big.Int{}
-		if v.AssetID.IsEqual(t.chainParams.ElaAssetId) {
-			value = *big.NewInt(int64(v.Value))
-		} else {
-			value = v.TokenValue
-		}
-
-		amount, ok := inputs[v.AssetID]
-		if ok {
-			inputs[v.AssetID] = *new(big.Int).Add(&amount, &value)
-		} else {
-			inputs[v.AssetID] = value
-		}
-	}
-
-	for _, v := range tx.Outputs {
-		value := big.Int{}
-		if v.AssetID.IsEqual(t.chainParams.ElaAssetId) {
-			value = *big.NewInt(int64(v.Value))
-		} else {
-			value = v.TokenValue
-		}
-
-		amount, ok := outputs[v.AssetID]
-		if ok {
-			outputs[v.AssetID] = *new(big.Int).Add(&amount, &value)
-		} else {
-			outputs[v.AssetID] = value
-		}
-	}
-
-	//calc the balance of input vs output
-	for outputAssetid, outputValue := range outputs {
-		if inputValue, ok := inputs[outputAssetid]; ok {
-			feeMap[outputAssetid] = inputValue.Sub(&inputValue, &outputValue)
-		} else {
-			value, ok := feeMap[outputAssetid]
-			if ok {
-				feeMap[outputAssetid] = value.Sub(value, &outputValue)
-			} else {
-				val := big.NewInt(0)
-				feeMap[outputAssetid] = val.Sub(val, &outputValue)
-			}
-		}
-	}
-	for inputAssetid, inputValue := range inputs {
-		if _, exist := feeMap[inputAssetid]; !exist {
-			value, ok := feeMap[inputAssetid]
-			if ok {
-				feeMap[inputAssetid] = new(big.Int).Add(value, &inputValue)
-			} else {
-				feeMap[inputAssetid] = new(big.Int).Add(value, &inputValue)
-			}
-		}
-	}
-	return feeMap, nil
+	return totalInput - totalOutput
 }
 
 func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.Block, coinBaseTx *types.Transaction) {
@@ -171,12 +69,9 @@ func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.B
 			continue
 		}
 
-		fee := t.GetTxFee(tx, t.chainParams.ElaAssetId)
-		if fee.Cmp(big.NewInt(int64(tx.Fee))) != 0 {
-			continue
-		}
+		fee := t.GetTxFee(tx)
 		msgBlock.Transactions = append(msgBlock.Transactions, tx)
-		totalFee += Fixed64(fee.Int64())
+		totalFee += fee
 		txCount++
 	}
 

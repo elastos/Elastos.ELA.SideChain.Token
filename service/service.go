@@ -45,7 +45,7 @@ func GetPayloadInfo(p types.Payload, pVersion byte) service.PayloadInfo {
 		obj := new(service.RegisterAssetInfo)
 		obj.Asset = object.Asset
 		value := big.NewInt(int64(object.Amount))
-		obj.Amount = value.Mul(value, big.NewInt(1000000000000000000)).String()
+		obj.Amount = value.String()
 		obj.Controller = BytesToHexString(BytesReverse(object.Controller.Bytes()))
 		return obj
 	case *types.PayloadTransferCrossChainAsset:
