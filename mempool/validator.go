@@ -181,7 +181,7 @@ func (v *validator) checkRegisterAssetTransaction(txn *types.Transaction) error 
 
 	for _, asset := range assets {
 		if asset.Name == payload.Asset.Name {
-			return fmt.Errorf("Asset name has been registed")
+			return fmt.Errorf("Asset name has been registed, " + asset.Name)
 		}
 	}
 

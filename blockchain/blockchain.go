@@ -2,7 +2,6 @@ package blockchain
 
 import (
 	"errors"
-	"math/big"
 	"time"
 
 	"github.com/elastos/Elastos.ELA.SideChain/auxpow"
@@ -16,7 +15,7 @@ import (
 
 type Config struct {
 	ChainParams    *config.Params
-	GetTxFee       func(tx *types.Transaction, assetId Uint256) *big.Int
+	GetTxFee       func(tx *types.Transaction) Fixed64
 }
 
 func GenesisBlock() (*types.Block, error) {

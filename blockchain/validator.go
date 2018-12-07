@@ -2,9 +2,8 @@ package blockchain
 
 import (
 	"errors"
-	"math/big"
-
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
+	"github.com/elastos/Elastos.ELA.Utility/common"
 )
 
 type validator struct {
@@ -14,7 +13,7 @@ type validator struct {
 func NewValidator(chain *blockchain.BlockChain, cfg *Config) *blockchain.Validator {
 	val := blockchain.NewValidator(chain)
 	val.RegisterFunc(blockchain.ValidateFuncNames.CheckTransactionsFee,
-		(&validator{cfg:cfg}).checkTransactionsFee)
+		(&validator{cfg: cfg}).checkTransactionsFee)
 	return val
 }
 
@@ -22,8 +21,8 @@ func (v *validator) checkTransactionsFee(params ...interface{}) (err error) {
 	block := blockchain.AssertBlock(params[0])
 
 	transactions := block.Transactions
-	var rewardInCoinbase = big.NewInt(0)
-	var totalTxFee = big.NewInt(0)
+	var rewardInCoinbase = common.Fixed64(0)
+	var totalTxFee = common.Fixed64(0)
 	for index, tx := range transactions {
 		// The first transaction in a block must be a coinbase.
 		if index == 0 {
@@ -32,7 +31,7 @@ func (v *validator) checkTransactionsFee(params ...interface{}) (err error) {
 			}
 			// Calculate reward in coinbase
 			for _, output := range tx.Outputs {
-				rewardInCoinbase.Add(rewardInCoinbase, big.NewInt(int64(output.Value)))
+				rewardInCoinbase += output.Value
 			}
 			continue
 		}
@@ -43,11 +42,11 @@ func (v *validator) checkTransactionsFee(params ...interface{}) (err error) {
 		}
 
 		// Calculate transaction fee
-		totalTxFee.Add(totalTxFee, v.cfg.GetTxFee(tx, v.cfg.ChainParams.ElaAssetId))
+		totalTxFee += v.cfg.GetTxFee(tx)
 	}
 
 	// Reward in coinbase must match total transaction fee
-	if rewardInCoinbase.Cmp(totalTxFee) != 0 {
+	if rewardInCoinbase != totalTxFee {
 		return errors.New("[PowCheckBlockSanity] reward amount in coinbase not correct")
 	}
 
