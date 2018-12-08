@@ -158,9 +158,12 @@ func (v *validator) CheckRegisterAssetTx(txn *types.Transaction) error {
 func (v *validator) checkRegisterAssetTransaction(txn *types.Transaction) error {
 	payload, ok := txn.Payload.(*types.PayloadRegisterAsset)
 	if !ok {
-		return fmt.Errorf("Invalid register asset transaction payload")
+		return fmt.Errorf("invalid register asset transaction payload")
 	}
 
+	if payload.Amount <= 0 {
+		return fmt.Errorf("asset amount should be a positive integer")
+	}
 	//asset name should be different
 	assets := v.db.GetAssets()
 	if len(payload.Asset.Name) == 0 {
