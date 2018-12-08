@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
 	"io/ioutil"
 	"os"
 	"time"
@@ -178,5 +179,9 @@ func loadNewConfig() (*appConfig, error) {
 	activeNetParams.MinTransactionFee = 100
 	activeNetParams.ExchangeRate = 1
 	activeNetParams.MinCrossChainTxFee = 10000
+	activeNetParams.GenesisBlock, err = blockchain.GenesisBlock()
+	if err != nil {
+		return nil, err
+	}
 	return &appCfg, nil
 }
