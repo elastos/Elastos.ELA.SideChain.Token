@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 
 	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
@@ -58,15 +59,23 @@ type utxo struct {
 }
 
 func (u *utxo) ValueString() string {
+	maxPrecision := 18
 	if u.AssetID == types.GetSystemAssetId() {
 		number, _ := Fixed64FromBytes(u.Value)
 		return number.String()
 	} else {
 		total := new(big.Int).SetBytes(u.Value).String()
+		if total == "0" {
+			return total
+		}
 		numberLength := len(total)
-		fractionalPart := total[numberLength-18 : numberLength]
-		integerPart := total[:numberLength-18]
-		return integerPart + "." + fractionalPart
+		if numberLength >= maxPrecision+1 {
+			fractionalPart := total[numberLength-maxPrecision:]
+			integerPart := total[:numberLength-maxPrecision]
+			return integerPart + "." + fractionalPart
+		} else {
+			return "0." + strings.Repeat("0", maxPrecision-len(total)) + total
+		}
 	}
 }
 
