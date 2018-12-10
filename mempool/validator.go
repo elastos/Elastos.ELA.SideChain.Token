@@ -252,7 +252,6 @@ func (v *validator) checkAssetPrecisionImpl(txn *types.Transaction) error {
 		for _, output := range outputs {
 			if output.AssetID.IsEqual(v.chainParams.ElaAssetId) {
 				if !checkAmountPrecise(output.Value, precision, 8) {
-					return errors.New("Invalide ela asset value,out of precise.")
 					desc := fmt.Sprint("[checkAssetPrecision] The precision of asset is incorrect.")
 					return mempool.RuleError{ErrorCode: mempool.ErrAssetPrecision, Description: desc}
 				}
