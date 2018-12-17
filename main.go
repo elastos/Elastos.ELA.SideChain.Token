@@ -79,10 +79,11 @@ func main() {
 	}
 	txFeeHelper := mp.NewFeeHelper(&mempoolCfg)
 	mempoolCfg.FeeHelper = txFeeHelper
-	chainCfg.GetTxFee = txFeeHelper.FeeHelper.GetTxFee
+	chainCfg.GetTxFee = txFeeHelper.GetTxFee
 
 	eladlog.Info("2. SPV module init")
 	genesisHash := activeNetParams.GenesisBlock.Hash()
+
 	programHash, err := mempool.GenesisToProgramHash(&genesisHash)
 	if err != nil {
 		eladlog.Fatalf("Genesis block hash to programHash failed, %s", err)
@@ -123,10 +124,7 @@ func main() {
 		eladlog.Fatalf("BlockChain initialize failed, %s", err)
 		os.Exit(1)
 	}
-	chainCfg.Validator = bc.NewValidator(chain, &bc.Config{
-		ChainParams: activeNetParams,
-		GetTxFee:    txFeeHelper.GetTxFee,
-	})
+	chainCfg.Validator = blockchain.NewValidator(chain)
 
 	mpCfg := mempool.Config{
 		ChainParams: activeNetParams,
@@ -208,7 +206,7 @@ func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Serve
 	s.RegisterAction("getrawtransaction", service.GetRawTransaction, "txid", "verbose")
 	s.RegisterAction("getneighbors", service.GetNeighbors)
 	s.RegisterAction("getnodestate", service.GetNodeState)
-	s.RegisterAction("sendrechargetransaction", service.SendRechargeToSideChainTxByHash)
+	s.RegisterAction("sendrechargetransaction", service.SendRechargeToSideChainTxByHash, "txid")
 	s.RegisterAction("sendrawtransaction", service.SendRawTransaction, "data")
 	s.RegisterAction("getbestblockhash", service.GetBestBlockHash)
 	s.RegisterAction("getblockcount", service.GetBlockCount)

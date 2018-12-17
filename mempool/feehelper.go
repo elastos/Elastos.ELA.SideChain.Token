@@ -29,20 +29,6 @@ func NewFeeHelper(cfg *Config) *FeeHelper {
 	}
 }
 
-func (t *FeeHelper) GetTxFee(tx *types.Transaction) Fixed64 {
-	var totalOutput Fixed64
-	var totalInput Fixed64
-	for _, output := range tx.Outputs {
-		totalOutput += output.Value
-	}
-
-	references, _ := t.chainStore.GetTxReference(tx)
-	for _, output := range references {
-		totalInput += output.Value
-	}
-	return totalInput - totalOutput
-}
-
 func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.Block, coinBaseTx *types.Transaction) {
 	nextBlockHeight := cfg.Chain.GetBestHeight() + 1
 	totalTxsSize := coinBaseTx.GetSize()
@@ -69,7 +55,7 @@ func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.B
 			continue
 		}
 
-		fee := t.GetTxFee(tx)
+		fee := t.GetTxFee(tx, t.chainParams.ElaAssetId)
 		msgBlock.Transactions = append(msgBlock.Transactions, tx)
 		totalFee += fee
 		txCount++
