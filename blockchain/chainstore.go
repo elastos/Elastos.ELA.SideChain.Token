@@ -10,6 +10,7 @@ import (
 
 	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/database"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 	. "github.com/elastos/Elastos.ELA.Utility/common"
@@ -20,6 +21,11 @@ const IX_Unspent_UTXO = 0x91
 type TokenChainStore struct {
 	*blockchain.ChainStore
 	systemAssetID Uint256
+}
+
+type Config struct {
+	ChainParams *config.Params
+	GetTxFee    func(tx *types.Transaction) Fixed64
 }
 
 type AssetInfo struct {
