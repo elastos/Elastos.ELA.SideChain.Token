@@ -38,11 +38,11 @@ var (
 		Version:    types.BlockVersion,
 		Previous:   EmptyHash,
 		MerkleRoot: ElaAssetId,
-		Timestamp:  uint32(time.Unix(time.Date(2018, time.June, 30,
+		Timestamp: uint32(time.Unix(time.Date(2018, time.October, 26,
 			12, 0, 0, 0, time.UTC).Unix(), 0).Unix()),
-		Bits:       0x1d03ffff,
-		Nonce:      types.GenesisNonce,
-		Height:     uint32(0),
+		Bits:   0x1d03ffff,
+		Nonce:  types.GenesisNonce,
+		Height: uint32(0),
 		SideAuxPow: auxpow.SideAuxPow{
 			SideAuxBlockTx: core.Transaction{
 				TxType:         core.SideChainPow,
