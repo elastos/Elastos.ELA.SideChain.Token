@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	printStateInterval = 5 * time.Second
+	printStateInterval = time.Minute
 
 	DataPath = "elastos_token"
 	DataDir  = "data"
