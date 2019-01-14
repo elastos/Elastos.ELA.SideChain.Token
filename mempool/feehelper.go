@@ -55,7 +55,10 @@ func (t *FeeHelper) GenerateBlockTransactions(cfg *pow.Config, msgBlock *types.B
 			continue
 		}
 
-		fee := t.GetTxFee(tx, t.chainParams.ElaAssetId)
+		fee, err := t.GetTxFee(tx, t.chainParams.ElaAssetId)
+		if err != nil {
+			continue
+		}
 		msgBlock.Transactions = append(msgBlock.Transactions, tx)
 		totalFee += fee
 		txCount++
