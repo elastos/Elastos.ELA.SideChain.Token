@@ -13,7 +13,7 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/database"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
-	. "github.com/elastos/Elastos.ELA.Utility/common"
+	. "github.com/elastos/Elastos.ELA/common"
 )
 
 const IX_Unspent_UTXO = 0x91

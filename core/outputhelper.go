@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"github.com/elastos/Elastos.ELA.SideChain/types"
-	. "github.com/elastos/Elastos.ELA.Utility/common"
+	. "github.com/elastos/Elastos.ELA/common"
 )
 
 const (

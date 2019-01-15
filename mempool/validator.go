@@ -11,7 +11,7 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
 	"github.com/elastos/Elastos.ELA.SideChain/spv"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
-	"github.com/elastos/Elastos.ELA.Utility/common"
+	"github.com/elastos/Elastos.ELA/common"
 )
 
 const (
@@ -98,15 +98,15 @@ func (v *validator) checkTransactionOutputImpl(txn *types.Transaction) error {
 }
 
 func checkOutputProgramHash(programHash common.Uint168) bool {
-	var empty = common.Uint168{}
-	prefix := programHash[0]
-	if prefix == common.PrefixStandard ||
-		prefix == common.PrefixMultisig ||
-		prefix == common.PrefixCrossChain ||
-		prefix == common.PrefixRegisterId ||
-		programHash == empty {
+	if programHash.IsEqual(common.Uint168{}) {
 		return true
 	}
+
+	switch programHash[0] {
+	case common.PrefixStandard, common.PrefixMultisig, common.PrefixCrossChain:
+		return true
+	}
+
 	return false
 }
 
