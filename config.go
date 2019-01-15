@@ -10,8 +10,8 @@ import (
 
 	"github.com/elastos/Elastos.ELA.SideChain.Token/params"
 
-	"github.com/elastos/Elastos.ELA.Utility/common"
 	"github.com/elastos/Elastos.ELA.Utility/elalog"
+	"github.com/elastos/Elastos.ELA/common"
 )
 
 const (

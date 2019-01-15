@@ -1,7 +1,7 @@
 package params
 
 import (
-	"github.com/elastos/Elastos.ELA.Utility/common"
+	"github.com/elastos/Elastos.ELA/common"
 	"math/big"
 	"time"
 
