@@ -23,6 +23,7 @@ func NewFeeHelper(cfg *Config) *FeeHelper {
 		FeeHelper: mempool.NewFeeHelper(&mempool.Config{
 			ChainParams: cfg.ChainParams,
 			ChainStore:  cfg.ChainStore,
+			SpvService:  cfg.SpvService,
 		}),
 		chainParams: cfg.ChainParams,
 		chainStore:  cfg.ChainStore,
