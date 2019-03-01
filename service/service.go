@@ -10,8 +10,9 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/service"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
-	"github.com/elastos/Elastos.ELA.Utility/http/util"
+
 	. "github.com/elastos/Elastos.ELA/common"
+	"github.com/elastos/Elastos.ELA/utils/http"
 )
 
 type HttpServiceExtend struct {
@@ -146,7 +147,7 @@ func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Tra
 	}
 }
 
-func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}, error) {
+func (s *HttpServiceExtend) GetReceivedByAddress(param http.Params) (interface{}, error) {
 	tokenValueList := make(map[Uint256]*big.Int)
 	var elaValue Fixed64
 	str, ok := param.String("address")
@@ -187,7 +188,7 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param util.Params) (interface{}
 	}
 }
 
-func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) {
+func (s *HttpServiceExtend) ListUnspent(param http.Params) (interface{}, error) {
 	bestHeight := s.chain.GetHeight()
 	type UTXOInfo struct {
 		AssetId       string `json:"assetid"`
@@ -257,7 +258,7 @@ func (s *HttpServiceExtend) ListUnspent(param util.Params) (interface{}, error) 
 	return results, nil
 }
 
-func (s *HttpServiceExtend) GetAssetByHash(param util.Params) (interface{}, error) {
+func (s *HttpServiceExtend) GetAssetByHash(param http.Params) (interface{}, error) {
 	str, ok := param.String("hash")
 	if !ok {
 		return nil, errors.New(service.InvalidParams.String())
@@ -285,7 +286,7 @@ func (s *HttpServiceExtend) GetAssetByHash(param util.Params) (interface{}, erro
 	return AssetInfo{asset.Name, asset.Description, asset.Precision, asset.Height, BytesToHexString(BytesReverse(assetID[:]))}, nil
 }
 
-func (s *HttpServiceExtend) GetAssetList(param util.Params) (interface{}, error) {
+func (s *HttpServiceExtend) GetAssetList(param http.Params) (interface{}, error) {
 	var assetArray []AssetInfo
 	assets := s.chain.GetAssets()
 	for assetID, asset := range assets {

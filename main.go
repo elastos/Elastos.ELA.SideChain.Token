@@ -21,9 +21,9 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/service"
 	"github.com/elastos/Elastos.ELA.SideChain/spv"
 
-	"github.com/elastos/Elastos.ELA.Utility/elalog"
-	"github.com/elastos/Elastos.ELA.Utility/http/jsonrpc"
-	"github.com/elastos/Elastos.ELA.Utility/signal"
+	"github.com/elastos/Elastos.ELA/utils/elalog"
+	"github.com/elastos/Elastos.ELA/utils/http/jsonrpc"
+	"github.com/elastos/Elastos.ELA/utils/signal"
 )
 
 const (
