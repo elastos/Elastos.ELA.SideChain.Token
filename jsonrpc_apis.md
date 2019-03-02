@@ -467,7 +467,7 @@ return raw data
 
 #### getrawmempool
 
-description: return hashes of transactions in memory pool.
+description: return detailed information of transactions in memory pool.
 
 parameters: none
 
@@ -483,10 +483,80 @@ result sample:
 
 ```javascript
 {
-  "result":["5da460632a154fe75df0d5ec98560e4bc1115374a37a75e984a534f8da3ca941", "5da460632a154fe75df0d5ec98560e4bc1115374a37a75e984a534f8da3ca941"]
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
+    "id": null,
+    "jsonrpc": "2.0",
+    "result": [
+        {
+            "txid": "0c88cc136ad0949ec7e9ad7eef6ba366e3701d990c8ee691c89d6d17d758ae60",
+            "hash": "0c88cc136ad0949ec7e9ad7eef6ba366e3701d990c8ee691c89d6d17d758ae60",
+            "size": 773,
+            "vsize": 773,
+            "version": 0,
+            "locktime": 0,
+            "vin": [
+                {
+                    "txid": "0d26389c37ce2fd16c06a4622d1cf18232819500f32d407cfb8c2f8d528977be",
+                    "vout": 1,
+                    "sequence": 0
+                },
+                {
+                    "txid": "0d26389c37ce2fd16c06a4622d1cf18232819500f32d407cfb8c2f8d528977be",
+                    "vout": 3,
+                    "sequence": 0
+                }
+            ],
+            "vout": [
+                {
+                    "value": "0.01000000",
+                    "n": 0,
+                    "address": "EU8gtbhXNA9KVVud9jdwJ96ABTcHhUVDb3",
+                    "assetid": "a3d0eaa466df74983b5d7c543de6904f4c9418ead5ffd6d25814234a96db37b0",
+                    "outputlock": 0
+                },
+                {
+                    "value": "97.98000000",
+                    "n": 1,
+                    "address": "8XQuPkk7TtFWNUNDZnXVb4syAcKDTaBTrn",
+                    "assetid": "a3d0eaa466df74983b5d7c543de6904f4c9418ead5ffd6d25814234a96db37b0",
+                    "outputlock": 0
+                },
+                {
+                    "value": "1",
+                    "n": 2,
+                    "address": "EU8gtbhXNA9KVVud9jdwJ96ABTcHhUVDb3",
+                    "assetid": "a9ab47e4c56c4616f8c95ff2891a0f07bffda81523a2396b1a25fa5df61e1a96",
+                    "outputlock": 0
+                },
+                {
+                    "value": "98",
+                    "n": 3,
+                    "address": "8XQuPkk7TtFWNUNDZnXVb4syAcKDTaBTrn",
+                    "assetid": "a9ab47e4c56c4616f8c95ff2891a0f07bffda81523a2396b1a25fa5df61e1a96",
+                    "outputlock": 0
+                }
+            ],
+            "blockhash": "",
+            "confirmations": 0,
+            "time": 0,
+            "blocktime": 0,
+            "type": 2,
+            "payloadversion": 0,
+            "payload": null,
+            "attributes": [
+                {
+                    "usage": 0,
+                    "data": "33343232373633313834393531393130383132"
+                }
+            ],
+            "programs": [
+                {
+                    "code": "53210255b8c9240f061edc47d2abfc44b0ebc570fddb32d15b31979045ba684c2366d72102855842b041d796ae871fc7e80b4354cdb8b14abbb364ae2c057c7d4a4e6527d42103aac4d451796952ad4408dfbf98c0949d41aa9658ca1898691bd16ca0b4910e612102c4ff52b341e99eb6f142e92c18d7327e00393ac6d4de97f5341c8efcfe9d000c54ae",
+                    "parameter": "40155b32b6cb2dc7a5232f7d6280455fc6f31fbfc20961877bdacf26dd8d9028fa753c18664f55a5464d6d848e9224bfd8ed91263b154103d3ce4134150c06282c40eec7b29f0327676dcc5b011d09a335f936370348c2194c6a1b24b251ac40c09ba401481c95245dc48399f5d5433b250378832df3a3cf466295bb14fd212f8be6402f48b50c01a55f01553201f80ac3d9a5d89e2dcca5058732c759d867469e506be0d5468ec64d2e09821f46f86c4f7ba0878b77e03ae3edecbbeccd55655917934028387d58d1f6a5cfaac53b72611928279cb79302a43dd31dd2e6608c579dcb2e5c9cff4c8ebf694e6de7c4565cf4d2301a417137972767348e4b052f28d24443"
+                }
+            ]
+        }
+    ],
+    "error": null
 }
 ```
 
@@ -519,10 +589,13 @@ result sample:
 
 ```json
 {
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": [{"b037db964a231458d2d6ffd5ea18944c4f90e63d547c5d3b9874df66a4ead0a3":"33000000"}]
+    "id": null,
+    "jsonrpc": "2.0",
+    "result": {
+        "118c95597ccd8569cdfa0154322e0dea509357c9c090ac5f7791b5e1d46c06b8": "100",
+        "a3d0eaa466df74983b5d7c543de6904f4c9418ead5ffd6d25814234a96db37b0": "100"
+    },
+    "error": null
 }
 ```
 
@@ -641,15 +714,7 @@ description: get peer's info
 
 parameters: none
 
-results:
-
-| name     | type           | description                                                 |
-| -------- | -------------- | ----------------------------------------------------------- |
-| Time     | integer        | current time in unix nano format                            |
-| Services | integer        | node service type. 4 is spv service and 0 is no spv service |
-| IP       | array[integer] | ip in 16-byte representation                                |
-| Port     | integer        | p2p network port                                            |
-| ID       | integer        | node's id                                                   |
+results: peer's ID, port and directions
 
 argument sample:
 
@@ -663,18 +728,13 @@ result sample:
 
 ```javascript
 {
-  "id": null,
-  "error": null,
-  "jsonrpc": "2.0",
-  "result": [
-    {
-      "Time": 1524798750979702000,
-      "Services": 4,
-      "IP": [0,0,0,0,0,0,0,0,0,0,255,255,127,0,0,1],
-      "Port": 30338,
-      "ID": 8775829619427993046
-    }
-  ]
+    "id": null,
+    "jsonrpc": "2.0",
+    "result": [
+        "127.0.0.1:52886 (inbound)",
+        "127.0.0.1:11808 (outbound)"
+    ],
+    "error": null
 }
 ```
 
@@ -710,13 +770,17 @@ neighbor:
 | name       | type    | description                                                     |
 | ---------- | ------- | --------------------------------------------------------------- |
 | ID         | integer | neighbor's id                                                   |
-| HexID      | string  | neighbor's id in hex format                                     |
-| Height     | integer | neighbor current height                                         |
-| Services   | integer | neighbor service type. 4 is spv service and 0 is no spv service |
+| Addr       | string  | neighbor's IP and port                                          |
+| Services   | integer | neighbor's service type                                         |
 | Relay      | bool    | whether neighbor will relay transaction or not                  |
-| External   | bool    | whether neighbor is from external network                       |
-| State      | string  | neighbor state in string format                                 |
-| NetAddress | string  | neighbor tcp address                                            |
+| LastSend   | string  | last send time to this peer                                     |
+| LastRecv   | string  | last receive time from this peer                                |
+| ConnTime   | string  | when is this peer connected                                     |
+| TimeOffset | integer | time offset between two neighbours                              |
+| Version    | integer | node version                                                    |
+| Inbound    | bool    | inbound or outbound                                             |
+| StartingHeight | integer | sync height of this peer                                    |
+| LastBlock  | integer | last block of this peer                                         |
 
 argument sample:
 ```json
@@ -727,38 +791,43 @@ argument sample:
 
 ```json
 {
-  "id": null,
-  "error": null,
-  "jsonrpc": "2.0",
-  "result": {
-    "Compile": "v0.1.1-50-gcd97",
-    "ID": 10544939963783245780,
-    "HexID": "0x925727070f1eefd4",
-    "Height": 168748,
-    "Version": 0,
-    "Services": 4,
-    "Relay": true,
-    "TxnCnt": 0,
-    "RxTxnCnt": 0,
-    "Port": 20338,
-    "PRCPort": 20336,
-    "RestPort": 20334,
-    "WSPort": 20335,
-    "OpenPort": 20866,
-    "OpenService": true,
-    "Neighbors": [
-      {
-        "ID": 8978226977158442839,
-        "HexID": "0x7c9911ddf65baf57",
-        "Height": 168748,
-        "Services": 4,
-        "Relay": true,
-        "External": false,
-        "State": "ESTABLISH",
-        "NetAddress": "13.229.160.170:20866"
-      }
-    ]
-  }
+    "id": null,
+    "jsonrpc": "2.0",
+    "result": [
+        {
+            "ID": 384710964560466558,
+            "Addr": "127.0.0.1:52886",
+            "Services": 5,
+            "RelayTx": 0,
+            "LastSend": "2019-03-02T12:10:04+08:00",
+            "LastRecv": "2019-03-02T12:10:04+08:00",
+            "ConnTime": "2019-03-02T11:00:34.506810809+08:00",
+            "TimeOffset": 0,
+            "Version": 10002,
+            "Inbound": true,
+            "StartingHeight": 15,
+            "LastBlock": 20,
+            "LastPingTime": "2019-03-02T12:10:04.54782669+08:00",
+            "LastPingMicros": 751
+        },
+        {
+            "ID": 2590488586472938031,
+            "Addr": "127.0.0.1:11808",
+            "Services": 5,
+            "RelayTx": 0,
+            "LastSend": "2019-03-02T12:10:03+08:00",
+            "LastRecv": "2019-03-02T12:10:03+08:00",
+            "ConnTime": "2019-03-02T11:00:33.515521214+08:00",
+            "TimeOffset": 0,
+            "Version": 10002,
+            "Inbound": false,
+            "StartingHeight": 14,
+            "LastBlock": 20,
+            "LastPingTime": "2019-03-02T12:10:03.55780625+08:00",
+            "LastPingMicros": 786
+        }
+    ],
+    "error": null
 }
 ```
 
@@ -859,302 +928,7 @@ result sample:
 }
 ```
 
-#### createauxblock
-
-description: generate an auxiliary block  
-parameters:
-
-| name         | type   | description     |
-| ------------ | ------ | --------------- |
-| paytoaddress | string | miner's address |
-
-named arguments sample:
-
-```json
-{
-  "method":"createauxblock",
-  "params":{"paytoaddress":"Ef4UcaHwvFrFzzsyVf5YH4JBWgYgUqfTAB"}
-}
-```
-
-positional arguments sample:
-
-```json
-{
-  "method": "createauxblock",
-  "params": ["Ef4UcaHwvFrFzzsyVf5YH4JBWgYgUqfTAB"]
-}
-```
-
-result sample:
-
-```json
-{
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": {
-    "chainid": 1224,
-    "height": 152789,
-    "coinbasevalue": 175799086,
-    "bits": "1d36c855",
-    "hash": "e28a262b38316fddefb0b5c753f7cc0022afe94e95f881576ad6b8f33f4e49fe",
-    "previousblockhash": "f297d03791f4cf2c6ef093b02a77465ea876b040b7772e56b8e140f3bff73871"
-  }
-}
-```
-
-#### submitauxblock
-
-description: submit the solved auxpow of an auxiliary block
-parameters:
-
-| name      | type   | description                               |
-| --------- | ------ | ----------------------------------------- |
-| blockhash | string | the auxiliary block hash                  |
-| auxpow    | string | the solved auxpow of this auxiliary block |
-
-named arguments sample:
-
-```json
-{
-  "method":"submitauxblock",
-  "params":{
-    "blockhash": "7926398947f332fe534b15c628ff0cd9dc6f7d3ea59c74801dc758ac65428e64",
-    "auxpow": "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4b0313ee0904a880495b742f4254432e434f4d2ffabe6d6d9581ba0156314f1e92fd03430c6e4428a32bb3f1b9dc627102498e5cfbf26261020000004204cb9a010f32a00601000000000000ffffffff0200000000000000001976a914c0174e89bd93eacd1d5a1af4ba1802d412afc08688ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf90000000014acac4ee8fdd8ca7e0b587b35fce8c996c70aefdf24c333038bdba7af531266000000000001ccc205f0e1cb435f50cc2f63edd53186b414fcb22b719da8c59eab066cf30bdb0000000000000020d1061d1e456cae488c063838b64c4911ce256549afadfc6a4736643359141b01551e4d94f9e8b6b03eec92bb6de1e478a0e913e5f733f5884857a7c2b965f53ca880495bffff7f20a880495b"
-  }
-}
-```
-
-positional arguments sample:
-
-```json
-{
-  "method":"submitauxblock",
-  "params":[
-    "7926398947f332fe534b15c628ff0cd9dc6f7d3ea59c74801dc758ac65428e64",
-    "02000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4b0313ee0904a880495b742f4254432e434f4d2ffabe6d6d9581ba0156314f1e92fd03430c6e4428a32bb3f1b9dc627102498e5cfbf26261020000004204cb9a010f32a00601000000000000ffffffff0200000000000000001976a914c0174e89bd93eacd1d5a1af4ba1802d412afc08688ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf90000000014acac4ee8fdd8ca7e0b587b35fce8c996c70aefdf24c333038bdba7af531266000000000001ccc205f0e1cb435f50cc2f63edd53186b414fcb22b719da8c59eab066cf30bdb0000000000000020d1061d1e456cae488c063838b64c4911ce256549afadfc6a4736643359141b01551e4d94f9e8b6b03eec92bb6de1e478a0e913e5f733f5884857a7c2b965f53ca880495bffff7f20a880495b"
-  ]
-}
-```
-
-result sample:
-
-```json
-{
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": true
-}
-```
-
 #### getinfo
 
 description: return node information.  
 warning: this interface is ready to be deprecated. So no api information will be supplied.
-
-#### listproducers
-
-description: show producers infromation
-parameters:
-
-| name  | type    | description                  |
-| ----- | ------- | ---------------------------- |
-| start | integer | the start index of producers |
-| limit | integer | the limit index of producers |
-
-result:
-
-| name           | type   | description                              |
-| -------------- | ------ | ---------------------------------------- |
-| ownerpublickey | string | the owner public key of producer         |
-| nodepublickey  | string | the node public key of the producer      |
-| nickname       | string | the nick name of the producer            |
-| url            | string | the url of the producer                  |
-| location       | uint64 | the location number of the producer      |
-| active         | bool   | if producer has confirmed                |
-| votes          | string | the votes currently held                 |
-| ip             | string | the ip address of the producer           |
-| index          | uint64 | the index of the producer                |
-| totalvotes     | string | the total votes of registered producers  |
-| totalcounts    | uint64 | the total counts of registered producers |
-
-named arguments sample:
-
-```json
-{
-  "method": "listproducers",
-  "params":{
-    "start": 0,
-    "limit": 3
-  }
-}
-```
-
-result sample:
-
-```json
-{
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": {
-    "producers": [
-      {
-        "ownerpublickey": "0237a5fb316caf7587e052125585b135361be533d74b5a094a68c64c47ccd1e1eb",
-        "nodepublickey": "0237a5fb316caf7587e052125585b135361be533d74b5a094a68c64c47ccd1e1eb",
-        "nickname": "elastos1",
-        "url": "http://www.elastos1.com",
-        "location": 401,
-        "active": true,
-        "votes": "3.11100000",
-        "ip": "127.0.0.1:20339",
-        "index": 0
-      },
-      {
-        "ownerpublickey": "030a26f8b4ab0ea219eb461d1e454ce5f0bd0d289a6a64ffc0743dab7bd5be0be9",
-        "nodepublickey": "030a26f8b4ab0ea219eb461d1e454ce5f0bd0d289a6a64ffc0743dab7bd5be0be9",
-        "nickname": "elastos2",
-        "url": "http://www.elastos2.com",
-        "location": 402,
-        "active": true,
-        "votes": "2.10000000",
-        "ip": "127.0.0.1:20339",
-        "index": 1
-      },
-      {
-        "ownerpublickey": "0288e79636e41edce04d4fa95d8f62fed73a76164f8631ccc42f5425f960e4a0c7",
-        "nodepublickey": "0288e79636e41edce04d4fa95d8f62fed73a76164f8631ccc42f5425f960e4a0c7",
-        "nickname": "elastos3",
-        "url": "http://www.elastos3.com",
-        "location": 403,
-        "active": true,
-        "votes": "0",
-        "ip": "127.0.0.1:20339",
-        "index": 2
-      }
-    ],
-    "totalvotes": "5.21100000",
-    "totalcounts": 10
-  }
-}
-```
-
-#### producerstatus
-
-description: show producer status
-parameters:
-
-| name      | type   | description                  |
-| --------- | ------ | ---------------------------- |
-| publickey | string | the public key of producer   |
-
-result:
-
-0: producer has not registered
-1: producer has confirmed (6 confirms)
-2: producer registered but not confirmed (less than 6 confirms)
-
-named arguments sample:
-
-```json
-{
-  "method": "producerstatus",
-  "params":{
-    "publickey": "0237a5fb316caf7587e052125585b135361be533d74b5a094a68c64c47ccd1e1eb"
-  }
-}
-```
-
-result sample:
-
-```json
-{
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": 1
-}
-```
-
-#### votestatus
-
-description: show producer vote status
-parameters:
-
-| name    | type   | description         |
-| ------- | ------ | ------------------- |
-| address | string | the address of user |
-
-result:
-
-| name      | type   | description             |
-| --------- | ------ | ----------------------- |
-| total     | string | the total voting rights |
-| voting    | string | the used voting rights  |
-| pending   | bool   | have vote in tx pool    |
-
-named arguments sample:
-
-```json
-{
-  "method": "votestatus",
-  "params":{
-    "address": "EZwPHEMQLNBpP2VStF3gRk8EVoMM2i3hda"
-  }
-}
-```
-
-result sample:
-
-```
-{
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": {
-    "total": "4.66088900",
-    "voting": "0",
-    "pending": true
-  }
-}
-```
-
-#### estimatesmartfee
-
-description: estimate transaction fee smartly.
-
-parameters:
-
-| name          | type | description                                                  |
-| ------------- | ---- | ------------------------------------------------------------ |
-| confirmations | int  | in how many blocks do you want your transaction to be packed |
-
-result:
-
-| name | type | description                       |
-| ---- | ---- | --------------------------------- |
-| -    | int  | fee rate, the unit is sela per KB |
-
-named arguments sample:
-
-```json
-{
-  "method": "estimatesmartfee",
-  "params":{
-    "confirmations": 5
-  }
-}
-```
-
-result sample:
-
-```json
-{
-  "error": null,
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": 10000
-}
-```
