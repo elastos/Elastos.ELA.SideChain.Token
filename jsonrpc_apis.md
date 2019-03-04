@@ -174,7 +174,7 @@ raw hash
 
 result sample:
 
-```
+```json
 {
   "error": null,
   "id": null,
@@ -256,7 +256,7 @@ result format except 'tx' is the same as it is when verbosity=1
 
 result format in 'tx' please see interface 'getrawtransaction'
 
-```
+```json
 {
   "error": null,
   "id": null,
@@ -456,7 +456,7 @@ result sample:(verbose=false)
 
 return raw data
 
-```
+```json
 {
   "error": null,
   "id": null,
@@ -863,67 +863,6 @@ result sample:
   "result":"764691821f937fd566bcf533611a5e5b193008ea1ba1396f67b7b0da22717c02",
   "id": null,
   "jsonrpc": "2.0",
-  "error": null
-}
-```
-
-#### togglemining
-
-description: the switch of mining
-
-parameters:
-
-| name   | type | description         |
-| ------ | ---- | ------------------- |
-| mining | bool | whether mine or not |
-
-argument sample:
-
-```json
-{
-  "method":"togglemining",
-  "params":{"mining":false}
-}
-```
-
-result sample:
-
-```json
-{
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": "mining stopped",
-  "error": null
-}
-```
-
-#### discretemining
-
-description: generate one or more blocks instantly  
-parameters:
-
-| name  | type    | description     |
-| ----- | ------- | --------------- |
-| count | integer | count of blocks |
-
-argument sample:
-
-```json
-{
-  "method":"discretemining",
-  "params":{"count":1}
-}
-```
-
-result sample:
-
-```json
-{
-  "id": null,
-  "jsonrpc": "2.0",
-  "result": [
-    "741d8131f0eea94c1c72c8bb1f0e9051a0a98441e131585bf5bf01868bf0ef46"
-  ],
   "error": null
 }
 ```
