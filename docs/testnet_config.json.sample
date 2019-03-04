@@ -3,11 +3,11 @@
     "Magic": 201903051,
     "SpvMagic": 2018001,
     "SeedList": [
-      "token-testnet-001.elastos.org:21618",
-      "token-testnet-002.elastos.org:21618",
-      "token-testnet-003.elastos.org:21618",
-      "token-testnet-004.elastos.org:21618",
-      "token-testnet-005.elastos.org:21618"
+      "node-testnet-011.elastos.org:21618",
+      "node-testnet-012.elastos.org:21618",
+      "node-testnet-013.elastos.org:21618",
+      "node-testnet-014.elastos.org:21618",
+      "node-testnet-015.elastos.org:21618"
     ],
     "SpvSeedList": [
       "node-testnet-002.elastos.org:21866",
