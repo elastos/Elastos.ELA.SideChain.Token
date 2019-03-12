@@ -3,24 +3,22 @@ package core
 import (
 	"io"
 
-	"github.com/elastos/Elastos.ELA.SideChain/core"
-	. "github.com/elastos/Elastos.ELA.Utility/common"
+	"github.com/elastos/Elastos.ELA.SideChain/types"
+	. "github.com/elastos/Elastos.ELA/common"
 )
 
-func InitOutputHelper() {
-	core.OutputHelper = &core.OutputHelperBase{}
-	core.OutputHelper.Init()
-	core.OutputHelper.Serialize = SerializeOutput
-	core.OutputHelper.Deserialize = DeserializeOutput
-}
+const (
+	// MaxTokenValueDataSize is the maximum allowed length of token value data.
+	MaxTokenValueDataSize = 8*4 + 1 // allow one bool(int8) and 4 uint64, that is 8 * 4 + 1 = 33 bytes.
+)
 
-func SerializeOutput(output *core.Output, w io.Writer) error {
+func serializeOutput(output *types.Output, w io.Writer) error {
 	err := output.AssetID.Serialize(w)
 	if err != nil {
 		return err
 	}
 
-	if output.AssetID.IsEqual(core.GetSystemAssetId()) {
+	if output.AssetID.IsEqual(types.GetSystemAssetId()) {
 		err = output.Value.Serialize(w)
 		if err != nil {
 			return err
@@ -42,19 +40,19 @@ func SerializeOutput(output *core.Output, w io.Writer) error {
 	return nil
 }
 
-func DeserializeOutput(output *core.Output, r io.Reader) error {
+func deserializeOutput(output *types.Output, r io.Reader) error {
 	err := output.AssetID.Deserialize(r)
 	if err != nil {
 		return err
 	}
 
-	if output.AssetID.IsEqual(core.GetSystemAssetId()) {
+	if output.AssetID.IsEqual(types.GetSystemAssetId()) {
 		err = output.Value.Deserialize(r)
 		if err != nil {
 			return err
 		}
 	} else {
-		bytes, err := ReadVarBytes(r)
+		bytes, err := ReadVarBytes(r, MaxTokenValueDataSize, "TokenValue")
 		if err != nil {
 			return err
 		}
@@ -73,4 +71,9 @@ func DeserializeOutput(output *core.Output, r io.Reader) error {
 	}
 
 	return nil
+}
+
+func Init() {
+	types.SerializeOutput = serializeOutput
+	types.DeserializeOutput = deserializeOutput
 }

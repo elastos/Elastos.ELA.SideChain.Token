@@ -2,14 +2,15 @@ package: github.com/elastos/Elastos.ELA.SideChain.Token
 import:
 - package: github.com/golang/crypto
 - package: github.com/golang/sys
-- package: github.com/AlexpanXX/fsnotify
+- package: github.com/elastos/Elastos.ELA
+  version: 84224de2cf773b7dbba295ac9a1dadc7fc78ce49
+- package: github.com/elastos/Elastos.ELA.SPV
+  version: v0.0.1
 - package: github.com/elastos/Elastos.ELA.Utility
-  version: dev
+  version: v0.1.2
 - package: github.com/elastos/Elastos.ELA.SideChain
-  version: dev
-- package: github.com/gorilla/websocket
+  version: v0.1.1
 - package: github.com/mattn/go-sqlite3
-- package: github.com/pborman/uuid
 - package: github.com/syndtr/goleveldb
   subpackages:
   - leveldb
