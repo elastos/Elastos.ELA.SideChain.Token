@@ -228,6 +228,8 @@ func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Serve
 	s.RegisterAction("listunspent", service.ListUnspent, "addresses", "assetid")
 	s.RegisterAction("getassetbyhash", service.GetAssetByHash, "hash")
 	s.RegisterAction("getassetlist", service.GetAssetList)
+	s.RegisterAction("getillegalevidencebyheight", service.GetIllegalEvidenceByHeight, "height")
+	s.RegisterAction("checkillegalevidence", service.CheckIllegalEvidence, "evidence")
 
 	return s
 }
