@@ -3,8 +3,7 @@
 	"Configuration": {
 		"Magic": 201809000,
 		"SpvMagic": 7630401,
-		"SeedList": [
-		],
+		"SeedList": [],
 		"SpvSeedList": [
 			"127.0.0.1:20866"
 		],
@@ -21,6 +20,13 @@
 			"MinerInfo": "DID-3",
 			"MinTxFee": 100,
 			"InstantBlock": false
+		},
+		"RpcConfiguration": {
+			"User": "ElaUser",
+			"Pass": "Ela123",
+			"WhiteIPList": [
+				"127.0.0.1"
+			]
 		}
 	}
 }
