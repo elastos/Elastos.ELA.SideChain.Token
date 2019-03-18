@@ -12,7 +12,6 @@ import (
 
 	"github.com/elastos/Elastos.ELA/common"
 	"github.com/elastos/Elastos.ELA/utils/elalog"
-	"github.com/elastos/Elastos.ELA/utils/http/jsonrpc"
 )
 
 const (
@@ -56,7 +55,11 @@ type config struct {
 			MinTxFee     int64
 			InstantBlock bool
 		}
-		RpcConfiguration jsonrpc.RpcConfiguration `json:"RpcConfiguration"`
+		RpcConfiguration struct {
+			User      string
+			Pass      string
+			WhiteList []string
+		}
 	}
 }
 
@@ -70,7 +73,9 @@ type appConfig struct {
 	MaxLogsFolderSize int64
 	MaxPerLogFileSize int64
 	MonitorState      bool
-	RpcConfiguration  jsonrpc.RpcConfiguration `json:"RpcConfiguration"`
+	RPCUser           string
+	RPCPass           string
+	RPCWhiteList      []string
 }
 
 func loadNewConfig() (*appConfig, error) {
@@ -82,11 +87,9 @@ func loadNewConfig() (*appConfig, error) {
 		HttpJsonPort:      20336,
 		MinerAddr:         "8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta",
 		MonitorState:      true,
-		RpcConfiguration: jsonrpc.RpcConfiguration{
-			User:        "",
-			Pass:        "",
-			WhiteIPList: []string{"127.0.0.1"},
-		},
+		RPCUser:           "",
+		RPCPass:           "",
+		RPCWhiteList:      []string{"127.0.0.1"},
 	}
 
 	data, err := ioutil.ReadFile(ConfigFilename)
@@ -131,7 +134,10 @@ func loadNewConfig() (*appConfig, error) {
 	appCfg.MaxLogsFolderSize = config.MaxLogsSize
 	appCfg.MaxPerLogFileSize = config.MaxPerLogSize
 	appCfg.MonitorState = true
-	appCfg.RpcConfiguration = cfg.Configuration.RpcConfiguration
+
+	appCfg.RPCUser = cfg.Configuration.RpcConfiguration.User
+	appCfg.RPCPass = cfg.Configuration.RpcConfiguration.Pass
+	appCfg.RPCWhiteList = cfg.Configuration.RpcConfiguration.WhiteList
 
 	if config.Magic > 0 {
 		activeNetParams.Magic = config.Magic

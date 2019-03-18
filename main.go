@@ -203,7 +203,9 @@ func main() {
 
 func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Server {
 	s := jsonrpc.NewServer(&jsonrpc.Config{ServePort: port,
-		RpcConfiguration: cfg.RpcConfiguration,
+		User:      cfg.RPCUser,
+		Pass:      cfg.RPCPass,
+		WhiteList: cfg.RPCWhiteList,
 	})
 
 	s.RegisterAction("setloglevel", service.SetLogLevel, "level")
