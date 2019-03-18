@@ -84,7 +84,7 @@ func loadNewConfig() (*appConfig, error) {
 		MaxLogsFolderSize: defaultLogsFolderSize,
 		MaxPerLogFileSize: defaultMaxLogFileSize,
 		HttpRestPort:      20604,
-		HttpJsonPort:      20336,
+		HttpJsonPort:      20606,
 		MinerAddr:         "8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta",
 		MonitorState:      true,
 		RPCUser:           "",
