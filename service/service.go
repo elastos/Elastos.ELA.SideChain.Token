@@ -12,28 +12,65 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 
 	. "github.com/elastos/Elastos.ELA/common"
+	"github.com/elastos/Elastos.ELA/elanet/pact"
 	"github.com/elastos/Elastos.ELA/utils/http"
 )
 
-type HttpServiceExtend struct {
+type Config struct {
+	service.Config
+	Compile  string
+	NodePort uint16
+	RPCPort  uint16
+	RestPort uint16
+	Store    *blockchain.TokenChainStore
+}
+
+type HttpService struct {
 	*service.HttpService
-	chain *blockchain.TokenChainStore
+	cfg   *Config
+	store *blockchain.TokenChainStore
 }
 
-type AssetInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Precision   byte   `json:"precision"`
-	Height      uint32 `json:"height"`
-	ID          string `json:"assetid"`
-}
-
-func NewHttpService(cfg *service.Config, store *blockchain.TokenChainStore) *HttpServiceExtend {
-	server := &HttpServiceExtend{
-		HttpService: service.NewHttpService(cfg),
-		chain:       store,
+func NewHttpService(cfg *Config) *HttpService {
+	server := &HttpService{
+		HttpService: service.NewHttpService(&cfg.Config),
+		cfg:         cfg,
+		store:       cfg.Store,
 	}
 	return server
+}
+
+func (s *HttpService) GetNodeState(param http.Params) (interface{}, error) {
+	peers := s.cfg.Server.ConnectedPeers()
+	states := make([]*PeerInfo, 0, len(peers))
+	for _, peer := range peers {
+		snap := peer.ToPeer().StatsSnapshot()
+		states = append(states, &PeerInfo{
+			NetAddress:     snap.Addr,
+			Services:       pact.ServiceFlag(snap.Services).String(),
+			RelayTx:        snap.RelayTx != 0,
+			LastSend:       snap.LastSend.String(),
+			LastRecv:       snap.LastRecv.String(),
+			ConnTime:       snap.ConnTime.String(),
+			TimeOffset:     snap.TimeOffset,
+			Version:        snap.Version,
+			Inbound:        snap.Inbound,
+			StartingHeight: snap.StartingHeight,
+			LastBlock:      snap.LastBlock,
+			LastPingTime:   snap.LastPingTime.String(),
+			LastPingMicros: snap.LastPingMicros,
+		})
+	}
+	return ServerInfo{
+		Compile:   s.cfg.Compile,
+		Height:    s.cfg.Chain.GetBestHeight(),
+		Version:   pact.DPOSStartVersion,
+		Services:  s.cfg.Server.Services().String(),
+		Port:      s.cfg.NodePort,
+		RPCPort:   s.cfg.RPCPort,
+		RestPort:  s.cfg.RestPort,
+		Neighbors: states,
+	}, nil
 }
 
 func GetPayloadInfo(p types.Payload, pVersion byte) service.PayloadInfo {
@@ -147,7 +184,7 @@ func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Tra
 	}
 }
 
-func (s *HttpServiceExtend) GetReceivedByAddress(param http.Params) (interface{}, error) {
+func (s *HttpService) GetReceivedByAddress(param http.Params) (interface{}, error) {
 	tokenValueList := make(map[Uint256]*big.Int)
 	var elaValue Fixed64
 	str, ok := param.String("address")
@@ -159,7 +196,7 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param http.Params) (interface{}
 	if err != nil {
 		return nil, fmt.Errorf(service.InvalidParams.String())
 	}
-	unspends, err := s.chain.GetUnspents(*programHash)
+	unspends, err := s.store.GetUnspents(*programHash)
 	for assetID, utxos := range unspends {
 		for _, u := range utxos {
 			if assetID == types.GetSystemAssetId() {
@@ -188,8 +225,8 @@ func (s *HttpServiceExtend) GetReceivedByAddress(param http.Params) (interface{}
 	}
 }
 
-func (s *HttpServiceExtend) ListUnspent(param http.Params) (interface{}, error) {
-	bestHeight := s.chain.GetHeight()
+func (s *HttpService) ListUnspent(param http.Params) (interface{}, error) {
+	bestHeight := s.store.GetHeight()
 	type UTXOInfo struct {
 		AssetId       string `json:"assetid"`
 		Txid          string `json:"txid"`
@@ -224,13 +261,13 @@ func (s *HttpServiceExtend) ListUnspent(param http.Params) (interface{}, error) 
 		if err != nil {
 			return nil, errors.New("Invalid address: " + address)
 		}
-		differentAssets, err := s.chain.GetUnspents(*programHash)
+		differentAssets, err := s.store.GetUnspents(*programHash)
 		if err != nil {
 			return nil, errors.New("cannot get asset with program")
 		}
 		for _, asset := range differentAssets {
 			for _, unspent := range asset {
-				tx, height, err := s.chain.GetTransaction(unspent.TxID)
+				tx, height, err := s.store.GetTransaction(unspent.TxID)
 				if err != nil {
 					return nil, errors.New("unknown transaction " + unspent.TxID.String() + " from persisted utxo")
 				}
@@ -258,7 +295,7 @@ func (s *HttpServiceExtend) ListUnspent(param http.Params) (interface{}, error) 
 	return results, nil
 }
 
-func (s *HttpServiceExtend) GetAssetByHash(param http.Params) (interface{}, error) {
+func (s *HttpService) GetAssetByHash(param http.Params) (interface{}, error) {
 	str, ok := param.String("hash")
 	if !ok {
 		return nil, errors.New(service.InvalidParams.String())
@@ -272,7 +309,7 @@ func (s *HttpServiceExtend) GetAssetByHash(param http.Params) (interface{}, erro
 	if err != nil {
 		return nil, errors.New(service.InvalidParams.String())
 	}
-	asset, err := s.chain.GetAsset(hash)
+	asset, err := s.store.GetAsset(hash)
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
@@ -286,9 +323,9 @@ func (s *HttpServiceExtend) GetAssetByHash(param http.Params) (interface{}, erro
 	return AssetInfo{asset.Name, asset.Description, asset.Precision, asset.Height, BytesToHexString(BytesReverse(assetID[:]))}, nil
 }
 
-func (s *HttpServiceExtend) GetAssetList(param http.Params) (interface{}, error) {
+func (s *HttpService) GetAssetList(param http.Params) (interface{}, error) {
 	var assetArray []AssetInfo
-	assets := s.chain.GetAssets()
+	assets := s.store.GetAssets()
 	for assetID, asset := range assets {
 		assetArray = append(assetArray, AssetInfo{
 			asset.Name,
