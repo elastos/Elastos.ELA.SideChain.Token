@@ -56,9 +56,9 @@ type config struct {
 			InstantBlock bool
 		}
 		RpcConfiguration struct {
-			User      string
-			Pass      string
-			WhiteList []string
+			User        string
+			Pass        string
+			WhiteIPList []string
 		}
 	}
 }
@@ -137,7 +137,7 @@ func loadNewConfig() (*appConfig, error) {
 
 	appCfg.RPCUser = cfg.Configuration.RpcConfiguration.User
 	appCfg.RPCPass = cfg.Configuration.RpcConfiguration.Pass
-	appCfg.RPCWhiteList = cfg.Configuration.RpcConfiguration.WhiteList
+	appCfg.RPCWhiteList = cfg.Configuration.RpcConfiguration.WhiteIPList
 
 	if config.Magic > 0 {
 		activeNetParams.Magic = config.Magic

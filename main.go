@@ -216,7 +216,7 @@ func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Serve
 	s.RegisterAction("getrawmempool", service.GetTransactionPool)
 	s.RegisterAction("getrawtransaction", service.GetRawTransaction, "txid", "verbose")
 	s.RegisterAction("getneighbors", service.GetNeighbors)
-	s.RegisterAction("getnodestate", service.GetNodeState)
+	//s.RegisterAction("getnodestate", service.GetNodeState)
 	s.RegisterAction("sendrechargetransaction", service.SendRechargeToSideChainTxByHash, "txid")
 	s.RegisterAction("sendrawtransaction", service.SendRawTransaction, "data")
 	s.RegisterAction("getbestblockhash", service.GetBestBlockHash)
