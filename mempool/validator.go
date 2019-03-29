@@ -3,6 +3,7 @@ package mempool
 import (
 	"errors"
 	"fmt"
+	"github.com/elastos/Elastos.ELA/core/contract"
 	"math"
 	"math/big"
 
@@ -102,8 +103,12 @@ func checkOutputProgramHash(programHash common.Uint168) bool {
 		return true
 	}
 
-	switch programHash[0] {
-	case common.PrefixStandard, common.PrefixMultisig, common.PrefixCrossChain:
+	switch contract.PrefixType(programHash[0]) {
+	case contract.PrefixStandard:
+		fallthrough
+	case contract.PrefixMultiSig:
+		fallthrough
+	case contract.PrefixCrossChain:
 		return true
 	}
 
