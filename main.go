@@ -170,21 +170,29 @@ func main() {
 	}
 
 	eladlog.Info("5. --Start the RPC service")
-	service := sv.NewHttpService(&service.Config{
-		Server:             server,
-		Chain:              chain,
-		Store:              chainStore.ChainStore,
-		GenesisAddress:     genesisAddress,
-		TxMemPool:          txPool,
-		PowService:         powService,
-		SetLogLevel:        setLogLevel,
-		SpvService:         spvService,
-		GetBlockInfo:       service.GetBlockInfo,
-		GetTransactionInfo: sv.GetTransactionInfo,
-		GetTransaction:     service.GetTransaction,
-		GetPayloadInfo:     sv.GetPayloadInfo,
-		GetPayload:         service.GetPayload,
-	}, chainStore)
+	serviceCfg := sv.Config{
+		Config: service.Config{
+			Server:             server,
+			Chain:              chain,
+			Store:              chainStore.ChainStore,
+			GenesisAddress:     genesisAddress,
+			TxMemPool:          txPool,
+			PowService:         powService,
+			SpvService:         spvService,
+			SetLogLevel:        setLogLevel,
+			GetBlockInfo:       service.GetBlockInfo,
+			GetTransactionInfo: sv.GetTransactionInfo,
+			GetTransaction:     service.GetTransaction,
+			GetPayloadInfo:     sv.GetPayloadInfo,
+			GetPayload:         service.GetPayload,
+		},
+		Compile:  Version,
+		NodePort: cfg.NodePort,
+		RPCPort:  cfg.HttpJsonPort,
+		RestPort: cfg.HttpRestPort,
+		Store:    chainStore,
+	}
+	service := sv.NewHttpService(&serviceCfg)
 
 	rpcServer := newJsonRpcServer(cfg.HttpJsonPort, service)
 	defer rpcServer.Stop()
@@ -201,8 +209,13 @@ func main() {
 	<-interrupt.C
 }
 
-func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Server {
-	s := jsonrpc.NewServer(&jsonrpc.Config{ServePort: port})
+func newJsonRpcServer(port uint16, service *sv.HttpService) *jsonrpc.Server {
+	s := jsonrpc.NewServer(&jsonrpc.Config{ServePort: port,
+		User:      cfg.RPCUser,
+		Pass:      cfg.RPCPass,
+		WhiteList: cfg.RPCWhiteList,
+	})
+
 	s.RegisterAction("setloglevel", service.SetLogLevel, "level")
 	s.RegisterAction("getblock", service.GetBlockByHash, "blockhash", "verbosity")
 	s.RegisterAction("getcurrentheight", service.GetBlockHeight)

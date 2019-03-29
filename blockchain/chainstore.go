@@ -171,6 +171,7 @@ func (c *TokenChainStore) GetUnspents(programHash Uint168) (map[Uint256][]*utxo,
 	prefix := []byte{byte(IX_Unspent_UTXO)}
 	key := append(prefix, programHash.Bytes()...)
 	iter := c.NewIterator(key)
+	defer iter.Release()
 	for iter.Next() {
 		rk := bytes.NewReader(iter.Key())
 
@@ -611,9 +612,10 @@ func (c *TokenChainStore) GetAsset(hash Uint256) (*AssetInfo, error) {
 func (c *TokenChainStore) GetAssets() map[Uint256]AssetInfo {
 	assets := make(map[Uint256]AssetInfo)
 
-	iterator := c.NewIterator([]byte{byte(blockchain.ST_Info)})
-	for iterator.Next() {
-		reader := bytes.NewReader(iterator.Key())
+	iter := c.NewIterator([]byte{byte(blockchain.ST_Info)})
+	defer iter.Release()
+	for iter.Next() {
+		reader := bytes.NewReader(iter.Key())
 
 		// read prefix
 		_, _ = ReadBytes(reader, 1)
@@ -621,7 +623,7 @@ func (c *TokenChainStore) GetAssets() map[Uint256]AssetInfo {
 		assetID.Deserialize(reader)
 
 		asset := new(AssetInfo)
-		asset.Deserialize(bytes.NewReader(iterator.Value()))
+		asset.Deserialize(bytes.NewReader(iter.Value()))
 
 		assets[assetID] = *asset
 	}

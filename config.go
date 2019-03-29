@@ -55,10 +55,16 @@ type config struct {
 			MinTxFee     int64
 			InstantBlock bool
 		}
+		RpcConfiguration struct {
+			User        string
+			Pass        string
+			WhiteIPList []string
+		}
 	}
 }
 
 type appConfig struct {
+	NodePort          uint16
 	HttpRestPort      uint16
 	HttpJsonPort      uint16
 	Mining            bool
@@ -68,6 +74,9 @@ type appConfig struct {
 	MaxLogsFolderSize int64
 	MaxPerLogFileSize int64
 	MonitorState      bool
+	RPCUser           string
+	RPCPass           string
+	RPCWhiteList      []string
 }
 
 func loadNewConfig() (*appConfig, error) {
@@ -112,8 +121,15 @@ func loadNewConfig() (*appConfig, error) {
 	config := cfg.Configuration
 	powCfg := cfg.Configuration.PowConfiguration
 
-	appCfg.HttpRestPort = config.HttpRestPort
-	appCfg.HttpJsonPort = config.HttpJsonPort
+	if config.HttpRestPort > 0 {
+		appCfg.HttpRestPort = config.HttpRestPort
+	}
+	if config.HttpJsonPort > 0 {
+		appCfg.HttpJsonPort = config.HttpJsonPort
+	}
+	if powCfg.PayToAddr != "" {
+		appCfg.MinerAddr = powCfg.PayToAddr
+	}
 	appCfg.Mining = powCfg.AutoMining
 	appCfg.MinerInfo = powCfg.MinerInfo
 	appCfg.MinerAddr = powCfg.PayToAddr
@@ -124,6 +140,10 @@ func loadNewConfig() (*appConfig, error) {
 	appCfg.MaxPerLogFileSize = config.MaxPerLogSize
 	appCfg.MonitorState = true
 
+	appCfg.RPCUser = cfg.Configuration.RpcConfiguration.User
+	appCfg.RPCPass = cfg.Configuration.RpcConfiguration.Pass
+	appCfg.RPCWhiteList = cfg.Configuration.RpcConfiguration.WhiteIPList
+
 	if config.Magic > 0 {
 		activeNetParams.Magic = config.Magic
 	}
@@ -131,6 +151,7 @@ func loadNewConfig() (*appConfig, error) {
 		activeNetParams.SeedList = *config.SeedList
 	}
 	if config.NodePort > 0 {
+		appCfg.NodePort = config.NodePort
 		activeNetParams.DefaultPort = config.NodePort
 	}
 	if len(config.FoundationAddress) > 0 {

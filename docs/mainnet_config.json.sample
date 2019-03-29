@@ -10,11 +10,11 @@
       "node-mainnet-030.elastos.org:20618"
     ],
     "SpvSeedList": [
-      "node-mainnet-002.elastos.org:20866",
-      "node-mainnet-003.elastos.org:20866",
-      "node-mainnet-004.elastos.org:20866",
-      "node-mainnet-005.elastos.org:20866",
-      "node-mainnet-006.elastos.org:20866"
+      "node-mainnet-002.elastos.org:20338",
+      "node-mainnet-003.elastos.org:20338",
+      "node-mainnet-004.elastos.org:20338",
+      "node-mainnet-005.elastos.org:20338",
+      "node-mainnet-006.elastos.org:20338"
     ],
     "ExchangeRate": 1.0,
     "MinCrossChainTxFee": 10000,
@@ -33,6 +33,13 @@
       "MinerInfo": "ELA",
       "MinTxFee": 100,
       "InstantBlock": false
+    },
+    "RpcConfiguration": {
+      "User": "ElaUser",
+      "Pass": "Ela123" ,
+      "WhiteIPList":[
+        "127.0.0.1"
+      ]
     }
   }
 }
