@@ -130,7 +130,7 @@ func main() {
 		eladlog.Fatalf("BlockChain initialize failed, %s", err)
 		os.Exit(1)
 	}
-	chainCfg.Validator = blockchain.NewValidator(chain)
+	chainCfg.Validator = blockchain.NewValidator(chain, spvService)
 
 	mpCfg := mempool.Config{
 		ChainParams: activeNetParams,
