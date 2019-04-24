@@ -10,17 +10,18 @@ import (
 	"time"
 
 	bc "github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain.Token/bloom"
+	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	mp "github.com/elastos/Elastos.ELA.SideChain.Token/mempool"
 	sv "github.com/elastos/Elastos.ELA.SideChain.Token/service"
 
-	"github.com/elastos/Elastos.ELA.SideChain.Token/core"
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain/filter"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
 	"github.com/elastos/Elastos.ELA.SideChain/pow"
 	"github.com/elastos/Elastos.ELA.SideChain/server"
 	"github.com/elastos/Elastos.ELA.SideChain/service"
 	"github.com/elastos/Elastos.ELA.SideChain/spv"
-
 	"github.com/elastos/Elastos.ELA/utils/elalog"
 	"github.com/elastos/Elastos.ELA/utils/http/jsonrpc"
 	"github.com/elastos/Elastos.ELA/utils/signal"
@@ -130,7 +131,7 @@ func main() {
 		eladlog.Fatalf("BlockChain initialize failed, %s", err)
 		os.Exit(1)
 	}
-	chainCfg.Validator = blockchain.NewValidator(chain)
+	chainCfg.Validator = blockchain.NewValidator(chain, spvService)
 
 	mpCfg := mempool.Config{
 		ChainParams: activeNetParams,
@@ -141,7 +142,21 @@ func main() {
 	txPool := mempool.New(&mpCfg)
 
 	eladlog.Info("3. Start the P2P networks")
-	server, err := server.New(filepath.Join(DataPath, DataDir), chain, txPool, activeNetParams)
+	server, err := server.New(&server.Config{
+		DataDir:     filepath.Join(DataPath, DataDir),
+		Chain:       chain,
+		TxMemPool:   txPool,
+		ChainParams: activeNetParams,
+		NewTxFilter: func(t filter.TxFilterType) filter.TxFilter {
+			switch t {
+			case filter.FTBloom:
+				return bloom.NewTxFilter()
+			case filter.FTTxType:
+				return filter.NewTxTypeFilter()
+			}
+			return nil
+		},
+	})
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)
 		os.Exit(1)
