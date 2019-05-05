@@ -19,7 +19,7 @@
   "RPCWhiteList": [
     "127.0.0.1"
   ],
-  "DebugLevel": "info",
+  "LogLevel": 1,
   "PerLogFileSize": 20,
   "LogsFolderSize": 2048,
   "DisableTxFilters": false,

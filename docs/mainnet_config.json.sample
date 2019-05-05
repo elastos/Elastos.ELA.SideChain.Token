@@ -1,12 +1,9 @@
 {
-  "DisableDNS": false,
-  "PermanentPeers": [
-    "localhost:20618"
-  ],
   "SPVDisableDNS": false,
   "SPVPermanentPeers": [
     "localhost:20338"
   ],
+  "EnableRPC": true,
   "RPCUser": "User",
   "RPCPass": "Password",
   "RPCWhiteList": [
