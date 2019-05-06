@@ -18,12 +18,13 @@ Default config for `testnet`
 ```json5
 {
   "ActiveNet": "mainnet", // Network type. Choices: mainnet testnet and regnet
-  "Magic": 2019004,       // Magic Number：Segregation for different subnet. No matter the port number, as long as the magic number not matching, nodes cannot talk to each others
+  "Magic": 2019004,       // Magic number：Segregation for different subnet. No matter the port number, as long as the magic number not matching, nodes cannot talk to each others
   "NodePort": 20618,      // The port number for P2P network connection.
   "DisableDNS": false,    // Disable the DNS service of the P2P network.
   "PermanentPeers": [     // Specify a list of peers to connect with permanently.
     "localhost:20618"
   ],
+  "SPVMagic": 2017001,    // SPV magic number.
   "SPVDisableDNS": false, // Disable the DNS service of the SPV P2P network.
   "SPVPermanentPeers": [  // Specify a list of SPV peers to connect with permanently.
     "localhost:20338"
