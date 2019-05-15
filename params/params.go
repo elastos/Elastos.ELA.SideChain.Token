@@ -132,7 +132,7 @@ func testNetParams(cfg config.Params) config.Params {
 		"node-testnet-013.elastos.org:21618",
 	}
 	cfg.Foundation = testNetFoundation
-	cfg.CheckPowHeaderHeight = 29498
+	cfg.CheckPowHeaderHeight = 30000
 	return cfg
 }
 
@@ -147,7 +147,7 @@ func regNetParams(cfg config.Params) config.Params {
 		"node-regtest-104.eadd.co:22618",
 	}
 	cfg.Foundation = testNetFoundation
-	cfg.CheckPowHeaderHeight = 29498
+	cfg.CheckPowHeaderHeight = 20000
 	return cfg
 }
 
