@@ -21,7 +21,6 @@ type Config struct {
 	Compile  string
 	NodePort uint16
 	RPCPort  uint16
-	RestPort uint16
 	Store    *blockchain.TokenChainStore
 }
 
@@ -68,7 +67,6 @@ func (s *HttpService) GetNodeState(param http.Params) (interface{}, error) {
 		Services:  s.cfg.Server.Services().String(),
 		Port:      s.cfg.NodePort,
 		RPCPort:   s.cfg.RPCPort,
-		RestPort:  s.cfg.RestPort,
 		Neighbors: states,
 	}, nil
 }
