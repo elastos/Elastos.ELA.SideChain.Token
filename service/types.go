@@ -15,7 +15,6 @@ type ServerInfo struct {
 	Services  string      `json:"services"`  // The services the server supports
 	Port      uint16      `json:"port"`      // The nodes's port
 	RPCPort   uint16      `json:"rpcport"`   // The RPC service port
-	RestPort  uint16      `json:"restport"`  // The RESTful service port
 	Neighbors []*PeerInfo `json:"neighbors"` // The connected neighbor peers.
 }
 
