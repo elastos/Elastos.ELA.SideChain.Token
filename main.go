@@ -149,6 +149,7 @@ func main() {
 			}
 			return nil
 		},
+		PermanentPeers: cfg.PermanentPeers,
 	})
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)
