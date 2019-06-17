@@ -10,6 +10,7 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain.Token/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/service"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
+	"github.com/elastos/Elastos.ELA.SideChain/interfaces"
 
 	. "github.com/elastos/Elastos.ELA/common"
 	"github.com/elastos/Elastos.ELA/elanet/pact"
@@ -113,7 +114,7 @@ func GetPayloadInfo(p types.Payload, pVersion byte) service.PayloadInfo {
 	return nil
 }
 
-func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Transaction) *service.TransactionInfo {
+func GetTransactionInfo(cfg *service.Config, header interfaces.Header, tx *types.Transaction) *service.TransactionInfo {
 	inputs := make([]service.InputInfo, len(tx.Inputs))
 	for i, v := range tx.Inputs {
 		inputs[i].TxID = service.ToReversedString(v.Previous.TxID)
@@ -155,10 +156,10 @@ func GetTransactionInfo(cfg *service.Config, header *types.Header, tx *types.Tra
 	var time uint32
 	var blockTime uint32
 	if header != nil {
-		confirmations = cfg.Chain.GetBestHeight() - header.Height + 1
+		confirmations = cfg.Chain.GetBestHeight() - header.GetHeight() + 1
 		blockHash = service.ToReversedString(header.Hash())
-		time = header.Timestamp
-		blockTime = header.Timestamp
+		time = header.GetTimeStamp()
+		blockTime = header.GetTimeStamp()
 	}
 
 	return &service.TransactionInfo{
