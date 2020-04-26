@@ -1,6 +1,6 @@
 Elastos ELA SideChain Token
 ===========
-[![Build Status](https://travis-ci.org/elastos/Elastos.ELA.SideChain.Token.svg?branch=master)](https://travis-ci.org/elastos/Elastos.ELA.SideChain.Token) [![Go Report Card](https://goreportcard.com/badge/github.com/elastos/Elastos.ELA.SideChain.Token)](https://goreportcard.com/report/github.com/elastos/Elastos.ELA.SideChain.Token)
+[![Build Status](https://travis-ci.com/elastos/Elastos.ELA.SideChain.Token.svg?branch=release_v0.1.2)](https://travis-ci.com/elastos/Elastos.ELA.SideChain.Token) [![Go Report Card](https://goreportcard.com/badge/github.com/elastos/Elastos.ELA.SideChain.Token)](https://goreportcard.com/report/github.com/elastos/Elastos.ELA.SideChain.Token)
 
 ## Introduction
 
