@@ -33,6 +33,6 @@ func TestParams(t *testing.T) {
 
 	addr, err = testNetFoundation.ToAddress()
 	assert.NoError(t, err)
-	assert.Equal(t, "8ZNizBf4KhhPjeJRGpox6rPcHE5Np6tFx3", addr)
+	assert.Equal(t, "8NRxtbMKScEWzW8gmPDGUZ8LSzm688nkZZ", addr)
 	t.Log(addr)
 }
