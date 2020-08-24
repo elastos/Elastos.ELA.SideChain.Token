@@ -38,13 +38,15 @@ var (
 
 	// genesisHeader
 	genesisHeader = types.Header{
-		Version:    types.BlockVersion,
-		Previous:   common.Uint256{},
-		MerkleRoot: ElaAssetId,
-		Timestamp:  uint32(genesisTime.Unix()),
-		Bits:       0x1d03ffff,
-		Nonce:      types.GenesisNonce,
-		Height:     uint32(0),
+		Base: types.BaseHeader{
+			Version:    types.BlockVersion,
+			Previous:   common.Uint256{},
+			MerkleRoot: ElaAssetId,
+			Timestamp:  uint32(genesisTime.Unix()),
+			Bits:       0x1d03ffff,
+			Nonce:      types.GenesisNonce,
+			Height:     uint32(0),
+		},
 		SideAuxPow: auxpow.SideAuxPow{
 			SideAuxBlockTx: ela.Transaction{
 				TxType:         ela.SideChainPow,
@@ -81,7 +83,7 @@ var (
 
 	// GenesisBlock represent the genesis block of the Token chain.
 	GenesisBlock = &types.Block{
-		Header:       genesisHeader,
+		Header:       &genesisHeader,
 		Transactions: []*types.Transaction{&elaAsset},
 	}
 )

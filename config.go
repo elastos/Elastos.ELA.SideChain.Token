@@ -63,6 +63,7 @@ type configParams struct {
 	InstantBlock       bool
 	PayToAddr          string
 	MinerInfo          string
+	CRClaimDPOSNodeStartHeight uint32
 }
 
 // loadConfigFile read configuration parameters through the config.json file.
@@ -143,7 +144,9 @@ func loadConfig() *configParams {
 	if cfg.InstantBlock {
 		params.InstantBlock(activeNetParams)
 	}
-
+	if cfg.CRClaimDPOSNodeStartHeight > 0 {
+		activeNetParams.CRClaimDPOSNodeStartHeight = cfg.CRClaimDPOSNodeStartHeight
+	}
 	return cfg
 }
 

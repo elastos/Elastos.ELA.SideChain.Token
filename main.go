@@ -149,6 +149,7 @@ func main() {
 			}
 			return nil
 		},
+		NodeVersion:    Version,
 	})
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)

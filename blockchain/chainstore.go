@@ -136,13 +136,13 @@ func NewChainStore(genesisBlock *types.Block, assetID Uint256, dataPath string) 
 		ChainStore:    chainStore,
 		systemAssetID: assetID,
 	}
-	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistUnspendUTXOs, store.persistUnspendUTXOs)
-	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
-	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistUnspend, store.persistUnspend)
+	store.RegisterFunctions(blockchain.PersistFunction, blockchain.StoreFuncNames.PersistUnspendUTXOs, store.persistUnspendUTXOs)
+	store.RegisterFunctions(blockchain.PersistFunction, blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
+	store.RegisterFunctions(blockchain.PersistFunction, blockchain.StoreFuncNames.PersistUnspend, store.persistUnspend)
 
-	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspendUTXOs, store.rollbackUnspendUTXOs)
-	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackTransactions, store.rollbackTransactions)
-	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackUnspend, store.rollbackUnspend)
+	store.RegisterFunctions(blockchain.RollbackFunction, blockchain.StoreFuncNames.RollbackUnspendUTXOs, store.rollbackUnspendUTXOs)
+	store.RegisterFunctions(blockchain.RollbackFunction, blockchain.StoreFuncNames.RollbackTransactions, store.rollbackTransactions)
+	store.RegisterFunctions(blockchain.RollbackFunction, blockchain.StoreFuncNames.RollbackUnspend, store.rollbackUnspend)
 
 	return store, nil
 }
@@ -268,7 +268,7 @@ func (c *TokenChainStore) PersistUnspentWithProgramHash(batch database.Batch, pr
 
 func (c *TokenChainStore) persistUnspendUTXOs(batch database.Batch, b *types.Block) error {
 	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*utxo)
-	curHeight := b.Header.Height
+	curHeight := b.Header.GetHeight()
 
 	for _, txn := range b.Transactions {
 		for index, output := range txn.Outputs {
@@ -392,7 +392,7 @@ func (c *TokenChainStore) rollbackTransactions(batch database.Batch, b *types.Bl
 
 func (c *TokenChainStore) rollbackUnspendUTXOs(batch database.Batch, b *types.Block) error {
 	unspendUTXOs := make(map[Uint168]map[Uint256]map[uint32][]*utxo)
-	height := b.Header.Height
+	height := b.Header.GetHeight()
 	for _, txn := range b.Transactions {
 		for index, output := range txn.Outputs {
 			programHash := output.ProgramHash
@@ -480,12 +480,12 @@ func (c *TokenChainStore) rollbackUnspendUTXOs(batch database.Batch, b *types.Bl
 
 func (c *TokenChainStore) persistTransactions(batch database.Batch, b *types.Block) error {
 	for _, txn := range b.Transactions {
-		if err := c.PersistTransaction(batch, txn, b.Header.Height); err != nil {
+		if err := c.PersistTransaction(batch, txn, b.Header.GetHeight()); err != nil {
 			return err
 		}
 		if txn.TxType == types.RegisterAsset {
 			regPayload := txn.Payload.(*types.PayloadRegisterAsset)
-			if err := c.PersistAsset(batch, AssetInfo{regPayload.Asset, b.Height}); err != nil {
+			if err := c.PersistAsset(batch, AssetInfo{regPayload.Asset, b.GetHeight()}); err != nil {
 				return err
 			}
 		}
